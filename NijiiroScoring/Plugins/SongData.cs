@@ -160,7 +160,7 @@ namespace NijiiroScoring.Plugins
             ExportSongData();
         }
 
-        public static IEnumerator VerifySongDataPoints(string songId, EnsoData.EnsoLevelType level)
+        public static IEnumerator VerifySongDataPoints(string songId, EnsoData.EnsoLevelType level, bool calculate = true)
         {
             Initialize();
 
@@ -169,7 +169,7 @@ namespace NijiiroScoring.Plugins
                 InitializeFromTakoTako();
             }
 
-            if (!AllSongData.ContainsKey(songId))
+            if (!AllSongData.ContainsKey(songId) && calculate)
             {
                 yield return CalculateSongPointValues(songId);
             }
@@ -188,7 +188,10 @@ namespace NijiiroScoring.Plugins
                     result.ScoreRank == 1000000
                     ))
                 {
-                    yield return CalculateSongPointValues(songId);
+                    if (calculate)
+                    {
+                        yield return CalculateSongPointValues(songId);
+                    }
                 }
             }
         }

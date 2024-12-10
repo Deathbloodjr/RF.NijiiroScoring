@@ -135,11 +135,11 @@ namespace NijiiroScoring.Plugins
             {
                 var data = datas[i];
                 var musicInfo = musicDataInterface.GetInfoByUniqueId(i);
+                //if (!data.IsDownloaded)
+                //{
+                //    continue;
+                //}
                 // Skip songs that don't have MusicInfo
-                if (!data.IsDownloaded)
-                {
-                    continue;
-                }
                 if (musicInfo == null)
                 {
                     continue;
@@ -168,7 +168,7 @@ namespace NijiiroScoring.Plugins
                     int numOks = result.normalHiScore.good;
                     int numRenda = result.normalHiScore.renda;
 
-                    yield return SongDataManager.VerifySongDataPoints(musicInfo.Id, j);
+                    yield return SongDataManager.VerifySongDataPoints(musicInfo.Id, j, data.IsDownloaded);
                     var points = SongDataManager.GetSongDataPoints(musicInfo.Id, j);
 
                     if (points == null)
