@@ -8,6 +8,7 @@ using Scripts.GameSystem;
 using Scripts.OutGame.Title;
 using Scripts.UserData;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -119,7 +120,12 @@ namespace NijiiroScoring.Plugins
         [HarmonyPostfix]
         public static void UserData_OnLoaded_Postfix()
         {
-            Logger.Log("UserData_OnLoaded_Postfix");
+            Plugin.Instance.StartCoroutine(LoadSongPoints());
+        }
+
+        static IEnumerator LoadSongPoints()
+        {
+            Logger.Log("Loading Nijiro Point Values");
             MusicsData musicData = SingletonMonoBehaviour<CommonObjects>.Instance.MusicData;
             MusicDataInterface musicDataInterface = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData;
 
@@ -128,34 +134,41 @@ namespace NijiiroScoring.Plugins
             for (int i = 0; i < datas.Length; i++)
             {
                 var data = datas[i];
+                var musicInfo = musicDataInterface.GetInfoByUniqueId(i);
+                // Skip songs that don't have MusicInfo
+                if (!data.IsDownloaded)
+                {
+                    continue;
+                }
+                if (musicInfo == null)
+                {
+                    continue;
+                }
+                // Skip debug songs (tmap4, kakunin, etc)
+                if (musicInfo.Debug)
+                {
+                    continue;
+                }
+                // Skip session songs from Taiko Band mode
+                if (musicInfo.Session != "")
+                {
+                    continue;
+                }
 
                 for (EnsoData.EnsoLevelType j = 0; j < EnsoData.EnsoLevelType.Num; j++)
                 {
+                    if (musicInfo.Stars[(int)j] == 0)
+                    {
+                        continue;
+                    }
+
                     musicData.GetNormalRecordInfo(i, j, out var result);
 
                     int numGoods = result.normalHiScore.excellent;
                     int numOks = result.normalHiScore.good;
                     int numRenda = result.normalHiScore.renda;
 
-                    var musicInfo = musicDataInterface.GetInfoByUniqueId(i);
-                    // Skip songs that don't have MusicInfo
-                    if (musicInfo == null)
-                    {
-                        continue;
-                    }
-                    // Skip debug songs (tmap4, kakunin, etc)
-                    if (musicInfo.Debug)
-                    {
-                        continue;
-                    }
-                    // Skip session songs from Taiko Band mode
-                    if (musicInfo.Session != "")
-                    {
-                        continue;
-                    }
-
-
-
+                    yield return SongDataManager.VerifySongDataPoints(musicInfo.Id, j);
                     var points = SongDataManager.GetSongDataPoints(musicInfo.Id, j);
 
                     if (points == null)
@@ -205,6 +218,7 @@ namespace NijiiroScoring.Plugins
                     data.normalRecordInfo[0][(int)j] = hiScore;
                 }
             }
+            Logger.Log("Nijiro Point Values Loaded");
         }
     }
 }

@@ -60,6 +60,7 @@ namespace NijiiroScoring
             {
                 bool result = true;
                 // If any PatchFile fails, result will become false
+                result &= PatchFile(typeof(GetFumenDataHook));
                 result &= PatchFile(typeof(NijiroScoringPatch));
                 if (result)
                 {
@@ -102,9 +103,9 @@ namespace NijiiroScoring
         }
 
         public static MonoBehaviour GetMonoBehaviour() => TaikoSingletonMonoBehaviour<CommonObjects>.Instance;
-        public void StartCoroutine(IEnumerator enumerator)
+        public Coroutine StartCoroutine(IEnumerator enumerator)
         {
-            GetMonoBehaviour().StartCoroutine(enumerator);
+            return GetMonoBehaviour().StartCoroutine(enumerator);
         }
     }
 }

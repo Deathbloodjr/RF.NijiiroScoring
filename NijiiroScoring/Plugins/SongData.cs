@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -35,24 +36,31 @@ namespace NijiiroScoring.Plugins
                 // This will read in the json made for this mod
                 if (File.Exists(FilePath))
                 {
-                    JsonArray node = JsonNode.Parse(File.ReadAllText(FilePath)).AsArray();
-                    for (int i = 0; i < node.Count; i++)
+                    try
                     {
-                        SongData data = new SongData();
-                        data.SongId = node[i]["SongId"].GetValue<string>();
-                        for (EnsoData.EnsoLevelType j = 0; j < EnsoData.EnsoLevelType.Num; j++)
+                        JsonArray node = JsonNode.Parse(File.ReadAllText(FilePath)).AsArray();
+                        for (int i = 0; i < node.Count; i++)
                         {
-                            string diff = j.ToString();
-                            if (j == EnsoData.EnsoLevelType.Mania)
+                            SongData data = new SongData();
+                            data.SongId = node[i]["SongId"].GetValue<string>();
+                            for (EnsoData.EnsoLevelType j = 0; j < EnsoData.EnsoLevelType.Num; j++)
                             {
-                                diff = "Oni";
+                                string diff = j.ToString();
+                                if (j == EnsoData.EnsoLevelType.Mania)
+                                {
+                                    diff = "Oni";
+                                }
+                                SongDataPoints points = new SongDataPoints();
+                                points.Points = node[i][diff]["Points"].GetValue<int>();
+                                points.ScoreRank = node[i][diff]["ScoreRank"].GetValue<int>();
+                                data.Points.Add(j, points);
                             }
-                            SongDataPoints points = new SongDataPoints();
-                            points.Points = node[i][diff]["Points"].GetValue<int>();
-                            points.ScoreRank = node[i][diff]["ScoreRank"].GetValue<int>();
-                            data.Points.Add(j, points);
+                            AllSongData.Add(data.SongId, data);
                         }
-                        AllSongData.Add(data.SongId, data);
+                    }
+                    catch
+                    {
+
                     }
                 }
 
@@ -96,7 +104,7 @@ namespace NijiiroScoring.Plugins
                         }
                         catch
                         {
-                            Logger.Log("Error parsing TakoTako data.json file: " + files[i].Directory.Name, LogType.Error);
+                            //Logger.Log("Error parsing TakoTako data.json file: " + files[i].Directory.Name, LogType.Error);
                         }
                     }
                 }
@@ -105,14 +113,24 @@ namespace NijiiroScoring.Plugins
             }
         }
 
-        static SongData CalculateSongPointValues(string songId)
+        static IEnumerator CalculateSongPointValues(string songId)
         {
-            Logger.Log("CalculateSongPointValues(" + songId + ")");
+            //Logger.Log("CalculateSongPointValues(" + songId + ")");
+            MusicDataInterface.MusicInfoAccesser musicInfo = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData.GetInfoById(songId);
             SongData data = new SongData();
             data.SongId = songId;
             for (EnsoData.EnsoLevelType i = 0; i < EnsoData.EnsoLevelType.Num; i++)
             {
-                var bytes = GetFumenData(songId, i).ToArray();
+                if (musicInfo.Stars[(int)i] == 0)
+                {
+                    SongDataPoints points = new SongDataPoints();
+                    points.Points = 0;
+                    points.ScoreRank = 0;
+                    data.Points.Add(i, points);
+                    continue;
+                }
+                yield return GetFumenDataHook.GetFumenData(songId, i);
+                var bytes = GetFumenDataHook.GetFumenDataResult(songId, i);
                 if (bytes.Length > 0)
                 {
                     // Do parsing stuff here, probably through my ChartConverter.dll
@@ -126,8 +144,8 @@ namespace NijiiroScoring.Plugins
                 else
                 {
                     SongDataPoints points = new SongDataPoints();
-                    points.Points = 1000;
-                    points.ScoreRank = 1000000;
+                    points.Points = 0;
+                    points.ScoreRank = 0;
                     data.Points.Add(i, points);
                 }
             }
@@ -140,13 +158,12 @@ namespace NijiiroScoring.Plugins
                 AllSongData.Add(songId, data);
             }
             ExportSongData();
-            return data;
         }
 
-        public static SongDataPoints GetSongDataPoints(string songId, EnsoData.EnsoLevelType level)
+        public static IEnumerator VerifySongDataPoints(string songId, EnsoData.EnsoLevelType level)
         {
             Initialize();
-            
+
             if (!AllSongData.ContainsKey(songId))
             {
                 InitializeFromTakoTako();
@@ -154,24 +171,31 @@ namespace NijiiroScoring.Plugins
 
             if (!AllSongData.ContainsKey(songId))
             {
-                CalculateSongPointValues(songId);
+                yield return CalculateSongPointValues(songId);
             }
 
             if (!AllSongData.ContainsKey(songId))
             {
                 // It shouldn't really ever get here I think
                 Logger.Log("Error parsing song: " + songId, LogType.Error);
-                return null;
             }
-
-            var result = AllSongData[songId].Points[level];
-            if (result.Points == 0 ||
-                result.ScoreRank == 0)
+            else
             {
-                result = CalculateSongPointValues(songId).Points[level];
+                var result = AllSongData[songId].Points[level];
+                if (result.Points == 0 ||
+                    result.ScoreRank == 0 ||
+                    (result.Points == 1000 &&
+                    result.ScoreRank == 1000000
+                    ))
+                {
+                    yield return CalculateSongPointValues(songId);
+                }
             }
+        }
 
-
+        public static SongDataPoints GetSongDataPoints(string songId, EnsoData.EnsoLevelType level)
+        {
+            var result = AllSongData[songId].Points[level];
             return result;
         }
 
@@ -228,101 +252,6 @@ namespace NijiiroScoring.Plugins
                 return points / 2 - 5;
             }
             return points / 2;
-        }
-
-        /// <summary>
-        /// I don't really know how well this function works in RF. It was made for TDMX, and slightly tested in RF's demo
-        /// </summary>
-        static unsafe List<byte> GetFumenData(string songId, EnsoData.EnsoLevelType level)
-        {
-            string[] array =
-            [
-                "_e",
-                "_n",
-                "_h",
-                "_m",
-                "_x"
-            ];
-
-            var filePath = Path.Combine(Application.streamingAssetsPath, string.Concat(
-            [
-                "fumen/",
-                songId,
-                array[(int)level],
-                ".bin"
-            ]));
-
-            try
-            {
-                //FumenLoader fumenLoader = new FumenLoader();
-                ////fumenLoader.settings.Reset();
-                //fumenLoader.settings.musicuid = songId;
-                //EnsoData.PlayerSettings[] playerSettings = new EnsoData.PlayerSettings[5];
-                //playerSettings[0] = new EnsoData.PlayerSettings();
-                //playerSettings[0].courseType = level;
-                //fumenLoader.settings.ensoPlayerSettings = playerSettings;
-                //fumenLoader.LoadStart();
-                //while (!fumenLoader.IsLoadingCompleted())
-                //{
-                //    Thread.Sleep(10);
-                //}
-                //byte[] fumenData = new byte[fumenLoader.GetFumenSize(0)];
-                //IntPtr ptr = new IntPtr(fumenLoader.GetFumenData(0));
-                //Marshal.Copy(ptr, fumenData, 0, fumenData.Length);
-                //for (int i = 0; i < fumenData.Length; i++)
-                //{
-                //    fumenData[i] = ((byte)fumenLoader.GetFumenData(0))
-                //}
-                //return fumenData.ToList();
-
-
-                //var task = Cryptgraphy.ReadAllAesAndGZipBytesAsync(filePath, Cryptgraphy.AesKeyType.Type2);
-                //while (task.Status != Cysharp.Threading.Tasks.UniTaskStatus.Succeeded)
-                //{
-                //    Thread.Sleep(10);
-                //}
-
-                //return task.result.ToList();
-
-
-                var result = Cryptgraphy.ReadAllAesAndGZipBytes(filePath, Cryptgraphy.AesKeyType.Type2);
-                return result.ToList();
-
-
-                //return Cryptgraphy.ReadAllAesAndGZipBytes(filePath, Cryptgraphy.AesKeyType.Type2).ToList();
-            }
-            catch (Exception)
-            {
-                // I'm upset at TakoTako for making me do this, rather than just ReadAllAesAndGZipBytes to get the data
-                //var customPath = FumenReading.GetCustomFumenPath(songId, level);
-                //var bytes = File.ReadAllBytes(customPath).ToList();
-
-                //bool gzipped = true;
-                //List<byte> gzippedFileHeader = new List<byte>() { 0x1F, 0x8B, 0x08 };
-                //for (int i = 0; i < gzippedFileHeader.Count; i++)
-                //{
-                //    if (bytes[i] != gzippedFileHeader[i])
-                //    {
-                //        gzipped = false;
-                //        break;
-                //    }
-                //}
-                //if (!gzipped)
-                //{
-                //    return bytes;
-                //}
-                //using (FileStream fs = new FileStream(customPath, FileMode.Open))
-                //{
-                //    MemoryStream memoryStream = new MemoryStream();
-                //    using (GZipStream gzipStream = new GZipStream(fs, CompressionMode.Decompress))
-                //    {
-                //        gzipStream.CopyTo(memoryStream);
-                //    }
-                //    return memoryStream.ToArray().ToList();
-                //}
-            }
-
-            return new List<byte>();
         }
     }
 }

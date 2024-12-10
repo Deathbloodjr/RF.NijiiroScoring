@@ -39,7 +39,7 @@ namespace NijiiroScoring
                     break;
                 case LogType.Debug:
 #if DEBUG
-                    Plugin.Log.LogDebug(value);
+                    Plugin.Log.LogInfo(DateTime.Now + ": " + value);
 #endif
                     break;
             }
