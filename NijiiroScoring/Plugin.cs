@@ -21,6 +21,7 @@ namespace NijiiroScoring
 
 
         public ConfigEntry<bool> ConfigEnabled;
+        public ConfigEntry<string> ConfigTakoTakoPath;
 
 
 
@@ -42,6 +43,12 @@ namespace NijiiroScoring
                 "Enabled",
                 true,
                 "Enables the mod.");
+
+            ConfigTakoTakoPath = Config.Bind("General",
+                "TakoTakoPath",
+                "BepInEx/data/TakoTako/customSongs",
+                "The folder path to your TakoTako customSongs directory from TDMX. " +
+                "Leave blank if you don't want to import point values from TDMX.");
         }
 
         private void SetupHarmony()

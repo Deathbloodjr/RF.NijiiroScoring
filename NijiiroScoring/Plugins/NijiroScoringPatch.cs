@@ -28,6 +28,8 @@ namespace NijiiroScoring.Plugins
 
         static bool IsEnabled = false;
 
+        static int Points = 1000;
+
         // This works for setting the score directly
         [HarmonyPatch(typeof(TaikoCorePlayer))]
         [HarmonyPatch(nameof(TaikoCorePlayer.GetFrameResults))]
@@ -45,9 +47,9 @@ namespace NijiiroScoring.Plugins
                 var numOk = __result.eachPlayer[i].countKa;
                 var numRenda = __result.eachPlayer[i].countRenda;
 
-                uint points = 1000;
+                uint points = (uint)Points;
 
-                uint newScore = (numGoods * points) + (numOk * (points / 2)) + (numRenda * 100);
+                uint newScore = (numGoods * points) + (numOk * (uint)SongDataManager.GetOkPoints(Points)) + (numRenda * 100);
                 //Plugin.Log.LogInfo("newScore: " + newScore);
                 //Plugin.Log.LogInfo("__result.eachPlayer[" + i + "].score: " + __result.eachPlayer[i].score);
                 if (newScore != CurrentScore)
@@ -86,6 +88,17 @@ namespace NijiiroScoring.Plugins
             if (__instance.ensoParam.IsOnlineMode == false)
             {
                 IsEnabled = true;
+                Logger.Log("__instance.settings.musicUniqueId: " + __instance.settings.musicUniqueId);
+                var musicInfo = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData.GetInfoByUniqueId(__instance.settings.musicUniqueId);
+                var points = SongDataManager.GetSongDataPoints(musicInfo.Id, __instance.settings.ensoPlayerSettings[0].courseType);
+                if (points != null)
+                {
+                    Points = points.Points;
+                }
+                else
+                {
+
+                }
             }
             else
             {
@@ -93,50 +106,7 @@ namespace NijiiroScoring.Plugins
             }
         }
 
-        // Can't touch this function without it breaking
-        //[HarmonyPatch(typeof(MusicDataUtility))]
-        //[HarmonyPatch(nameof(MusicDataUtility.GetNormalRecordInfo))]
-        //[HarmonyPatch(new Type[] { typeof(int), typeof(int), typeof(EnsoData.EnsoLevelType), typeof(EnsoRecordInfo) },
-        //              new ArgumentType[] { ArgumentType.Normal, ArgumentType.Normal, ArgumentType.Normal, ArgumentType.Out })]
-        //[HarmonyPatch(MethodType.Normal)]
-        //[HarmonyPrefix]
-        //public static void MusicDataUtility_GetNormalRecordInfo_Prefix(int playerNo, int songUid, EnsoData.EnsoLevelType lv)
-        //{
-        //    Logger.Log("MusicDataUtility_GetNormalRecordInfo_Prefix");
-        //    if (playerNo == 0)
-        //    {
-        //        UserData data = SingletonMonoBehaviour<CommonObjects>.Instance.SaveData.data; ;
-        //        var musicInfoEx = data.MusicsData.Datas[songUid];
-        //        //musicInfoEx.normalRecordInfo[0][(int)lv].normalHiScore.score;
-        //    }
-
-        //for (int j = 0; j < __instance.MusicsData.Datas.Count; j++)
-        //{
-        //    var data = __instance.MusicsData.Datas[j];
-        //    if (data != null)
-        //    {
-        //        for (EnsoData.EnsoLevelType i = 0; i < EnsoData.EnsoLevelType.Num; i++)
-        //        {
-        //            MusicDataUtility.GetNormalRecordInfo(0, j, i, out var result);
-
-        //            var numGoods = result.normalHiScore.excellent;
-        //            var numOk = result.normalHiScore.good;
-        //            var numRenda = result.normalHiScore.renda;
-
-        //            int points = 1000;
-
-        //            int newScore = (numGoods * points) + (numOk * (points / 2)) + (numRenda * 100);
-        //            result.normalHiScore.score = newScore;
-
-        //            MusicsData musicData = SingletonMonoBehaviour<CommonObjects>.Instance.MusicData;
-        //            musicData.UpdateNormalRecordInfo(j, i, false, ref result.normalHiScore, result.crown);
-        //        }
-        //    }
-        //}
-
-
-        //}
-
+       
 
         //[HarmonyPatch(typeof(UserData))]
         //[HarmonyPatch(nameof(UserData.OnLoaded))]
@@ -150,31 +120,52 @@ namespace NijiiroScoring.Plugins
         {
             Logger.Log("TitleSceneUiController_StartAsync_Postfix");
             MusicsData musicData = SingletonMonoBehaviour<CommonObjects>.Instance.MusicData;
+            MusicDataInterface musicDataInterface = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData;
 
-            
-            //var hiScore = dst.normalHiScore;
-            //hiScore.score = 956720;
-            //musicData.UpdateNormalRecordInfo(115, EnsoData.EnsoLevelType.Mania, false, ref hiScore, DataConst.CrownType.Rainbow);
-
-            // This only works for changing Easy scores for some reason
             var datas = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.SaveData.Data.MusicsData.Datas;
-            int i = 137;
 
-
-            //for (int i = 0; i < datas.Length; i++)
+            for (int i = 0; i < datas.Length; i++)
             {
-                //Logger.Log("i: " + i);
-                //var data = datas[115];
                 var data = datas[i];
-                //Il2CppReferenceArray<Il2CppStructArray<EnsoRecordInfo>> normalRecordInfo = new Il2CppReferenceArray<Il2CppStructArray<EnsoRecordInfo>>(1);
 
                 for (EnsoData.EnsoLevelType j = 0; j < EnsoData.EnsoLevelType.Num; j++)
                 {
-                    // Proof that the bytes are not lining up properly throughout the array
-                    // Easy showed 10-20-30-40-50-60
-                    // Normal showed 10000000-30-40-50-60-xx
+                    musicData.GetNormalRecordInfo(i, j, out var result);
 
-                    int value = 1000000 + (int)j;
+                    int numGoods = result.normalHiScore.excellent;
+                    int numOks = result.normalHiScore.good;
+                    int numRenda = result.normalHiScore.renda;
+
+                    var musicInfo = musicDataInterface.GetInfoByUniqueId(i);
+                    if (musicInfo == null)
+                    {
+                        continue;
+                    }
+
+                    if (musicInfo.Debug)
+                    {
+                        continue;
+                    }
+
+                    if (musicInfo.Session != "")
+                    {
+                        continue;
+                    }
+
+
+
+                    var points = SongDataManager.GetSongDataPoints(musicInfo.Id, j);
+
+                    if (points == null)
+                    {
+                        Logger.Log("Couldn't get points for song: " + musicInfo.Id);
+                        continue;
+                    }
+
+                    // For numOks, it isn't quite Points / 2
+                    // It gets rounded in a certain way, I wanna make sure I get it right
+                    int value = (numGoods * points.Points) + (numOks * SongDataManager.GetOkPoints(points.Points)) + (numRenda * 100);
+
                     short topHalf = (short)(value << 16 >> 16);
                     short botHalf = (short)(value >> 16);
 
@@ -189,113 +180,9 @@ namespace NijiiroScoring.Plugins
                         case EnsoData.EnsoLevelType.Ura: hiScore.normalHiScore.bad = topHalf; hiScore.normalHiScore.combo = botHalf; break;
                     }
 
-                    //EnsoRecordInfo hiScore = new EnsoRecordInfo();
-                    //hiScore.normalHiScore.score = 10 + (int)j;
-                    //hiScore.normalHiScore.excellent = (short)(20 + (short)j);
-                    //hiScore.normalHiScore.good = (short)(30 + (short)j);
-                    //hiScore.normalHiScore.bad = (short)(40 + (short)j);
-                    //hiScore.normalHiScore.combo = (short)(50 + (short)j);
-                    //hiScore.normalHiScore.renda = (short)(60 + (short)j);
-
-                    //hiScore.shinuchiHiScore.score = 70 + (int)j;
-                    //hiScore.shinuchiHiScore.excellent = (short)(80 + (short)j);
-                    //hiScore.shinuchiHiScore.good = (short)(90 + (short)j);
-                    //hiScore.shinuchiHiScore.bad = (short)(100 + (short)j);
-                    //hiScore.shinuchiHiScore.combo = (short)(110 + (short)j);
-                    //hiScore.shinuchiHiScore.renda = (short)(120 + (short)j);
-
                     data.normalRecordInfo[0][(int)j] = hiScore;
                 }
-
-
-
-
-
-
-
-                //int sizeData = Marshal.SizeOf(data);
-                //int sizeData = 1000;
-                //byte[] arrData = new byte[sizeData];
-
-                //IntPtr ptr2 = IntPtr.Zero;
-                //try
-                //{
-                //    ptr2 = Marshal.AllocHGlobal(sizeData);
-                //    Marshal.StructureToPtr(data, ptr2, false);
-                //    Marshal.Copy(new IntPtr(), arrData, 0, sizeData);
-                //}
-                //finally
-                //{
-                //    Marshal.FreeHGlobal(ptr2);
-                //}
-
-
-
-                //File.WriteAllBytes(@"C:\Other\Tako\RhythmFestival\Workspace\testdata.bin", byteArray);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                //if (data != null)
-                //{
-                //    for (int j = 0; j < data.normalRecordInfo.Length; j++)
-                //    {
-                //        //Logger.Log("j: " + j);
-                //        for (int k = 0; k < data.normalRecordInfo[j].Length; k++)
-                //        {
-                //            //Logger.Log("k: " + k);
-                //            var highScoreData = data.normalRecordInfo[j][k];
-                //            highScoreData.normalHiScore.score = 956720;
-                //            data.UpdateNormalRecordInfo((EnsoData.EnsoLevelType)j, false, ref highScoreData.normalHiScore, highScoreData.crown);
-                //            //data.normalRecordInfo[j][k] = highScoreData;
-                //        }
-                //    }
-                //}
             }
-
         }
-
-        //[HarmonyPatch(typeof(TitleSceneUiController))]
-        //[HarmonyPatch(nameof(TitleSceneUiController.StartAsync))]
-        //[HarmonyPatch(MethodType.Normal)]
-        //[HarmonyPrefix]
-        //public static bool TitleSceneUiController_StartAsync_Prefix(TitleSceneUiController __instance)
-        //{
-        //    Logger.Log("TitleSceneUiController_StartAsync_Prefix");
-        //    var datas = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MusicData.Datas;
-        //    //for (int i = 0; i < datas.Length; i++)
-        //    {
-        //        //Logger.Log("i: " + i);
-        //        var data = datas[115];
-        //        if (data != null)
-        //        {
-        //            for (int j = 0; j < data.normalRecordInfo.Length; j++)
-        //            {
-        //                //Logger.Log("j: " + j);
-        //                for (int k = 0; k < data.normalRecordInfo[j].Length; k++)
-        //                {
-        //                    //Logger.Log("k: " + k);
-        //                    var highScoreData = data.normalRecordInfo[j][k];
-        //                    highScoreData.normalHiScore.score = 1003;
-        //                    data.normalRecordInfo[j][k] = highScoreData;
-        //                }
-        //            }
-        //        }
-        //    }
-        //    return true;
-        //}
-
     }
 }
