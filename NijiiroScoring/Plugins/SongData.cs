@@ -76,6 +76,10 @@ namespace NijiiroScoring.Plugins
                             var node = JsonNode.Parse(File.ReadAllText(files[i].FullName));
                             SongData data = new SongData();
                             data.SongId = node["id"].GetValue<string>();
+                            if (AllSongData.ContainsKey(data.SongId))
+                            {
+                                continue;
+                            }
                             for (EnsoData.EnsoLevelType j = 0; j < EnsoData.EnsoLevelType.Num; j++)
                             {
                                 string diff = j.ToString();
@@ -101,14 +105,42 @@ namespace NijiiroScoring.Plugins
             }
         }
 
-        static void CalculateSongPointValues(string songId)
+        static SongData CalculateSongPointValues(string songId)
         {
+            Logger.Log("CalculateSongPointValues(" + songId + ")");
+            SongData data = new SongData();
+            data.SongId = songId;
             for (EnsoData.EnsoLevelType i = 0; i < EnsoData.EnsoLevelType.Num; i++)
             {
                 var bytes = GetFumenData(songId, i).ToArray();
-                // Do parsing stuff here, probably through my ChartConverter.dll
+                if (bytes.Length > 0)
+                {
+                    // Do parsing stuff here, probably through my ChartConverter.dll
+                    var chart = ChartConverterLib.Fumen.ReadFumen(bytes, false);
+                    var chartPoints = chart.GetPointsAndScore();
+                    SongDataPoints points = new SongDataPoints();
+                    points.Points = chartPoints.points;
+                    points.ScoreRank = chartPoints.score;
+                    data.Points.Add(i, points);
+                }
+                else
+                {
+                    SongDataPoints points = new SongDataPoints();
+                    points.Points = 1000;
+                    points.ScoreRank = 1000000;
+                    data.Points.Add(i, points);
+                }
+            }
+            if (AllSongData.ContainsKey(songId))
+            {
+                AllSongData[songId] = data;
+            }
+            else
+            {
+                AllSongData.Add(songId, data);
             }
             ExportSongData();
+            return data;
         }
 
         public static SongDataPoints GetSongDataPoints(string songId, EnsoData.EnsoLevelType level)
@@ -132,7 +164,15 @@ namespace NijiiroScoring.Plugins
                 return null;
             }
 
-            return AllSongData[songId].Points[level];
+            var result = AllSongData[songId].Points[level];
+            if (result.Points == 0 ||
+                result.ScoreRank == 0)
+            {
+                result = CalculateSongPointValues(songId).Points[level];
+            }
+
+
+            return result;
         }
 
         static void ExportSongData()

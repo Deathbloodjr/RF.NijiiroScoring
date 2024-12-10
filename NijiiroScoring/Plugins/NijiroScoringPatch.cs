@@ -39,30 +39,32 @@ namespace NijiiroScoring.Plugins
         {
             //Plugin.Log.LogInfo("TaikoCorePlayer_GetFrameResults_Postfix");
 
-            for (int i = 0; i < __result.eachPlayer.Length; i++)
+            if (IsEnabled)
             {
-                var eachPlayer = __result.eachPlayer[i];
-
-                var numGoods = __result.eachPlayer[i].countRyo;
-                var numOk = __result.eachPlayer[i].countKa;
-                var numRenda = __result.eachPlayer[i].countRenda;
-
-                uint points = (uint)Points;
-
-                uint newScore = (numGoods * points) + (numOk * (uint)SongDataManager.GetOkPoints(Points)) + (numRenda * 100);
-                //Plugin.Log.LogInfo("newScore: " + newScore);
-                //Plugin.Log.LogInfo("__result.eachPlayer[" + i + "].score: " + __result.eachPlayer[i].score);
-                if (newScore != CurrentScore)
+                for (int i = 0; i < __result.eachPlayer.Length; i++)
                 {
-                    ScoreIncreaseQueue.Enqueue((int)(newScore - CurrentScore));
-                    CurrentScore = newScore;
+                    var eachPlayer = __result.eachPlayer[i];
+
+                    var numGoods = __result.eachPlayer[i].countRyo;
+                    var numOk = __result.eachPlayer[i].countKa;
+                    var numRenda = __result.eachPlayer[i].countRenda;
+
+                    uint points = (uint)Points;
+
+                    uint newScore = (numGoods * points) + (numOk * (uint)SongDataManager.GetOkPoints(Points)) + (numRenda * 100);
+                    //Plugin.Log.LogInfo("newScore: " + newScore);
+                    //Plugin.Log.LogInfo("__result.eachPlayer[" + i + "].score: " + __result.eachPlayer[i].score);
+                    if (newScore != CurrentScore)
+                    {
+                        ScoreIncreaseQueue.Enqueue((int)(newScore - CurrentScore));
+                        CurrentScore = newScore;
+                    }
+                    eachPlayer.score = newScore;
+                    __result.eachPlayer[i] = eachPlayer;
+                    //Plugin.Log.LogInfo("__result.eachPlayer[" + i + "].score: " + __result.eachPlayer[i].score);
+
                 }
-                eachPlayer.score = newScore;
-                __result.eachPlayer[i] = eachPlayer;
-                //Plugin.Log.LogInfo("__result.eachPlayer[" + i + "].score: " + __result.eachPlayer[i].score);
-
             }
-
         }
 
         // This works properly for adjusting the score change amount
@@ -72,9 +74,12 @@ namespace NijiiroScoring.Plugins
         [HarmonyPrefix]
         public static void ScorePlayer_SetAddScorePool_Prefix(ScorePlayer __instance, int index, ref int score)
         {
-            if (ScoreIncreaseQueue.Count != 0)
+            if (IsEnabled)
             {
-                score = ScoreIncreaseQueue.Dequeue();
+                if (ScoreIncreaseQueue.Count != 0)
+                {
+                    score = ScoreIncreaseQueue.Dequeue();
+                }
             }
         }
 
@@ -88,16 +93,16 @@ namespace NijiiroScoring.Plugins
             if (__instance.ensoParam.IsOnlineMode == false)
             {
                 IsEnabled = true;
-                Logger.Log("__instance.settings.musicUniqueId: " + __instance.settings.musicUniqueId);
                 var musicInfo = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData.GetInfoByUniqueId(__instance.settings.musicUniqueId);
                 var points = SongDataManager.GetSongDataPoints(musicInfo.Id, __instance.settings.ensoPlayerSettings[0].courseType);
+                CurrentScore = 0;
                 if (points != null)
                 {
                     Points = points.Points;
                 }
                 else
                 {
-
+                    IsEnabled = false;
                 }
             }
             else
@@ -106,19 +111,15 @@ namespace NijiiroScoring.Plugins
             }
         }
 
-       
 
-        //[HarmonyPatch(typeof(UserData))]
-        //[HarmonyPatch(nameof(UserData.OnLoaded))]
-        //[HarmonyPatch(MethodType.Normal)]
-        //[HarmonyPostfix]
-        [HarmonyPatch(typeof(TitleSceneUiController))]
-        [HarmonyPatch(nameof(TitleSceneUiController.StartAsync))]
+
+        [HarmonyPatch(typeof(UserData))]
+        [HarmonyPatch(nameof(UserData.OnLoaded))]
         [HarmonyPatch(MethodType.Normal)]
         [HarmonyPostfix]
-        public static void TitleSceneUiController_StartAsync_Postfix()
+        public static void UserData_OnLoaded_Postfix()
         {
-            Logger.Log("TitleSceneUiController_StartAsync_Postfix");
+            Logger.Log("UserData_OnLoaded_Postfix");
             MusicsData musicData = SingletonMonoBehaviour<CommonObjects>.Instance.MusicData;
             MusicDataInterface musicDataInterface = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData;
 
@@ -137,16 +138,17 @@ namespace NijiiroScoring.Plugins
                     int numRenda = result.normalHiScore.renda;
 
                     var musicInfo = musicDataInterface.GetInfoByUniqueId(i);
+                    // Skip songs that don't have MusicInfo
                     if (musicInfo == null)
                     {
                         continue;
                     }
-
+                    // Skip debug songs (tmap4, kakunin, etc)
                     if (musicInfo.Debug)
                     {
                         continue;
                     }
-
+                    // Skip session songs from Taiko Band mode
                     if (musicInfo.Session != "")
                     {
                         continue;
@@ -159,25 +161,45 @@ namespace NijiiroScoring.Plugins
                     if (points == null)
                     {
                         Logger.Log("Couldn't get points for song: " + musicInfo.Id);
-                        continue;
+                        break;
                     }
 
-                    // For numOks, it isn't quite Points / 2
-                    // It gets rounded in a certain way, I wanna make sure I get it right
+                    // This part's fucked
+                    // Basically, the struct wasn't lining up properly when assigning values to different difficulties
+                    // Assigning values to OKs on easy were just fine, but assigning a value to OKs on normal would assign it to Goods
+                    // Assigning values to OKs on hard would assign it to Score, etc
+
                     int value = (numGoods * points.Points) + (numOks * SongDataManager.GetOkPoints(points.Points)) + (numRenda * 100);
 
+                    // Split the 4 byte value into two 2 byte values
                     short topHalf = (short)(value << 16 >> 16);
                     short botHalf = (short)(value >> 16);
-
 
                     var hiScore = data.normalRecordInfo[0][(int)j];
                     switch (j)
                     {
-                        case EnsoData.EnsoLevelType.Easy: hiScore.normalHiScore.score = value; break;
-                        case EnsoData.EnsoLevelType.Normal: hiScore.normalHiScore.score = (((hiScore.normalHiScore.score << 16) >> 16) | topHalf << 16); hiScore.normalHiScore.excellent = botHalf; break;
-                        case EnsoData.EnsoLevelType.Hard: hiScore.normalHiScore.excellent = topHalf; hiScore.normalHiScore.good = botHalf; break;
-                        case EnsoData.EnsoLevelType.Mania: hiScore.normalHiScore.good = topHalf; hiScore.normalHiScore.bad = botHalf; break;
-                        case EnsoData.EnsoLevelType.Ura: hiScore.normalHiScore.bad = topHalf; hiScore.normalHiScore.combo = botHalf; break;
+                        case EnsoData.EnsoLevelType.Easy:
+                            hiScore.normalHiScore.score = value;
+                            break;
+                        case EnsoData.EnsoLevelType.Normal:
+                            // This should assign the value to only the 2 bytes of the score that we want to change
+                            // While not overwriting any of the 2 bytes of score that were there previously
+                            // I don't even know what data would be there, but I don't want to overwrite it to be safe
+                            hiScore.normalHiScore.score = (((hiScore.normalHiScore.score << 16) >> 16) | topHalf << 16);
+                            hiScore.normalHiScore.excellent = botHalf;
+                            break;
+                        case EnsoData.EnsoLevelType.Hard:
+                            hiScore.normalHiScore.excellent = topHalf;
+                            hiScore.normalHiScore.good = botHalf;
+                            break;
+                        case EnsoData.EnsoLevelType.Mania:
+                            hiScore.normalHiScore.good = topHalf;
+                            hiScore.normalHiScore.bad = botHalf;
+                            break;
+                        case EnsoData.EnsoLevelType.Ura:
+                            hiScore.normalHiScore.bad = topHalf;
+                            hiScore.normalHiScore.combo = botHalf;
+                            break;
                     }
 
                     data.normalRecordInfo[0][(int)j] = hiScore;
