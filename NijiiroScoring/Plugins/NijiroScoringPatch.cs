@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+﻿using Cysharp.Threading.Tasks;
+using HarmonyLib;
 using Il2CppInterop.Runtime;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using Il2CppInterop.Runtime.Startup;
@@ -131,8 +132,14 @@ namespace NijiiroScoring.Plugins
 
             var datas = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.SaveData.Data.MusicsData.Datas;
 
+            SongDataManager.PauseExporting(true);
+
             for (int i = 0; i < datas.Length; i++)
             {
+                if (i % 100 == 0)
+                {
+                    Logger.Log(i + "/" + datas.Length);
+                }
                 var data = datas[i];
                 var musicInfo = musicDataInterface.GetInfoByUniqueId(i);
                 //if (!data.IsDownloaded)
@@ -168,7 +175,14 @@ namespace NijiiroScoring.Plugins
                     int numOks = result.normalHiScore.good;
                     int numRenda = result.normalHiScore.renda;
 
-                    yield return SongDataManager.VerifySongDataPoints(musicInfo.Id, j, data.IsDownloaded);
+                    bool calculate = true;
+                    if ((musicInfo.InPackage == InPackageType.DispOnly || musicInfo.InPackage == InPackageType.None) &&
+                        !data.IsDownloaded)
+                    {
+                        calculate = false;
+                    }
+
+                    yield return SongDataManager.VerifySongDataPoints(musicInfo.Id, j, calculate);
                     var points = SongDataManager.GetSongDataPoints(musicInfo.Id, j);
 
                     if (points == null)
@@ -218,7 +232,19 @@ namespace NijiiroScoring.Plugins
                     data.normalRecordInfo[0][(int)j] = hiScore;
                 }
             }
+            SongDataManager.PauseExporting(false);
+            SongDataManager.ExportSongData();
             Logger.Log("Nijiro Point Values Loaded");
+        }
+
+
+        [HarmonyPatch(typeof(MusicsData))]
+        [HarmonyPatch(nameof(MusicsData.AddDownloadedSong))]
+        [HarmonyPatch(MethodType.Normal)]
+        [HarmonyPostfix]
+        public static void MusicsData_AddDownloadedSong_Postfix(MusicsData __instance, int songUid)
+        {
+            Plugin.Instance.StartCoroutine(SongDataManager.VerifySongDataPoints(songUid));
         }
     }
 }

@@ -8,6 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
+using static MusicDataInterface;
 
 namespace NijiiroScoring.Plugins
 {
@@ -44,7 +45,7 @@ namespace NijiiroScoring.Plugins
                 fumenPath += ".bin";
 
                 FumenLoader.PlayerData playerData = new FumenLoader.PlayerData();
-                if (musicInfo.InPackage == MusicDataInterface.InPackageType.None)
+                if (musicInfo.InPackage == InPackageType.DispOnly || musicInfo.InPackage == InPackageType.None)
                 {
                     FumenData data = new FumenData();
                     data.path = fumenPath;

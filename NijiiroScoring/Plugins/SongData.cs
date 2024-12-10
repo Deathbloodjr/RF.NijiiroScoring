@@ -27,6 +27,8 @@ namespace NijiiroScoring.Plugins
         static bool IsInitialized = false;
         static bool IsInitializedFromTakoTako = false;
 
+        static bool IsPauseExporting = false;
+
         static Dictionary<string, SongData> AllSongData = new Dictionary<string, SongData>();
 
         static void Initialize()
@@ -107,21 +109,20 @@ namespace NijiiroScoring.Plugins
                             //Logger.Log("Error parsing TakoTako data.json file: " + files[i].Directory.Name, LogType.Error);
                         }
                     }
+                    ExportSongData();
                 }
-                ExportSongData();
                 IsInitializedFromTakoTako = true;
             }
         }
 
-        static IEnumerator CalculateSongPointValues(string songId)
+        static IEnumerator CalculateSongPointValues(string songId, bool calculate)
         {
-            //Logger.Log("CalculateSongPointValues(" + songId + ")");
             MusicDataInterface.MusicInfoAccesser musicInfo = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData.GetInfoById(songId);
             SongData data = new SongData();
             data.SongId = songId;
             for (EnsoData.EnsoLevelType i = 0; i < EnsoData.EnsoLevelType.Num; i++)
             {
-                if (musicInfo.Stars[(int)i] == 0)
+                if (musicInfo.Stars[(int)i] == 0 || !calculate)
                 {
                     SongDataPoints points = new SongDataPoints();
                     points.Points = 0;
@@ -129,6 +130,7 @@ namespace NijiiroScoring.Plugins
                     data.Points.Add(i, points);
                     continue;
                 }
+                Logger.Log("CalculateSongPointValues(" + songId + ", " + i.ToString() + ")", LogType.Debug);
                 yield return GetFumenDataHook.GetFumenData(songId, i);
                 var bytes = GetFumenDataHook.GetFumenDataResult(songId, i);
                 if (bytes.Length > 0)
@@ -159,7 +161,28 @@ namespace NijiiroScoring.Plugins
             }
             ExportSongData();
         }
-
+        public static IEnumerator VerifySongDataPoints(int uniqueId, bool calculate = true)
+        {
+            MusicDataInterface.MusicInfoAccesser musicInfo = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData.GetInfoByUniqueId(uniqueId);
+            for (EnsoData.EnsoLevelType i = 0; i < EnsoData.EnsoLevelType.Num; i++)
+            {
+                if (musicInfo.Stars[(int)i] != 0)
+                {
+                    yield return VerifySongDataPoints(musicInfo.Id, i, calculate);
+                }
+            }
+        }
+        public static IEnumerator VerifySongDataPoints(string songId)
+        {
+            MusicDataInterface.MusicInfoAccesser musicInfo = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData.GetInfoById(songId);
+            for (EnsoData.EnsoLevelType i = 0; i < EnsoData.EnsoLevelType.Num; i++)
+            {
+                if (musicInfo.Stars[(int)i] != 0)
+                {
+                    yield return VerifySongDataPoints(songId, i);
+                }
+            }
+        }
         public static IEnumerator VerifySongDataPoints(string songId, EnsoData.EnsoLevelType level, bool calculate = true)
         {
             Initialize();
@@ -169,9 +192,9 @@ namespace NijiiroScoring.Plugins
                 InitializeFromTakoTako();
             }
 
-            if (!AllSongData.ContainsKey(songId) && calculate)
+            if (!AllSongData.ContainsKey(songId))
             {
-                yield return CalculateSongPointValues(songId);
+                yield return CalculateSongPointValues(songId, calculate);
             }
 
             if (!AllSongData.ContainsKey(songId))
@@ -188,10 +211,7 @@ namespace NijiiroScoring.Plugins
                     result.ScoreRank == 1000000
                     ))
                 {
-                    if (calculate)
-                    {
-                        yield return CalculateSongPointValues(songId);
-                    }
+                    yield return CalculateSongPointValues(songId, calculate);
                 }
             }
         }
@@ -202,50 +222,53 @@ namespace NijiiroScoring.Plugins
             return result;
         }
 
-        static void ExportSongData()
+        public static void ExportSongData()
         {
             if (!Directory.Exists(Path.GetDirectoryName(FilePath)))
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(FilePath));
             }
 
-            JsonArray array = new JsonArray();
-
-            foreach (var song in AllSongData.Values)
+            if (!IsPauseExporting)
             {
-                JsonObject obj = new JsonObject()
-                {
-                    ["SongId"] = song.SongId,
-                    ["Easy"] = new JsonObject()
-                    {
-                        ["Points"] = song.Points[EnsoData.EnsoLevelType.Easy].Points,
-                        ["ScoreRank"] = song.Points[EnsoData.EnsoLevelType.Easy].ScoreRank,
-                    },
-                    ["Normal"] = new JsonObject()
-                    {
-                        ["Points"] = song.Points[EnsoData.EnsoLevelType.Normal].Points,
-                        ["ScoreRank"] = song.Points[EnsoData.EnsoLevelType.Normal].ScoreRank,
-                    },
-                    ["Hard"] = new JsonObject()
-                    {
-                        ["Points"] = song.Points[EnsoData.EnsoLevelType.Hard].Points,
-                        ["ScoreRank"] = song.Points[EnsoData.EnsoLevelType.Hard].ScoreRank,
-                    },
-                    ["Oni"] = new JsonObject()
-                    {
-                        ["Points"] = song.Points[EnsoData.EnsoLevelType.Mania].Points,
-                        ["ScoreRank"] = song.Points[EnsoData.EnsoLevelType.Mania].ScoreRank,
-                    },
-                    ["Ura"] = new JsonObject()
-                    {
-                        ["Points"] = song.Points[EnsoData.EnsoLevelType.Ura].Points,
-                        ["ScoreRank"] = song.Points[EnsoData.EnsoLevelType.Ura].ScoreRank,
-                    }
-                };
-                array.Add(obj);
-            }
+                JsonArray array = new JsonArray();
 
-            File.WriteAllText(FilePath, array.ToJsonString());
+                foreach (var song in AllSongData.Values)
+                {
+                    JsonObject obj = new JsonObject()
+                    {
+                        ["SongId"] = song.SongId,
+                        ["Easy"] = new JsonObject()
+                        {
+                            ["Points"] = song.Points[EnsoData.EnsoLevelType.Easy].Points,
+                            ["ScoreRank"] = song.Points[EnsoData.EnsoLevelType.Easy].ScoreRank,
+                        },
+                        ["Normal"] = new JsonObject()
+                        {
+                            ["Points"] = song.Points[EnsoData.EnsoLevelType.Normal].Points,
+                            ["ScoreRank"] = song.Points[EnsoData.EnsoLevelType.Normal].ScoreRank,
+                        },
+                        ["Hard"] = new JsonObject()
+                        {
+                            ["Points"] = song.Points[EnsoData.EnsoLevelType.Hard].Points,
+                            ["ScoreRank"] = song.Points[EnsoData.EnsoLevelType.Hard].ScoreRank,
+                        },
+                        ["Oni"] = new JsonObject()
+                        {
+                            ["Points"] = song.Points[EnsoData.EnsoLevelType.Mania].Points,
+                            ["ScoreRank"] = song.Points[EnsoData.EnsoLevelType.Mania].ScoreRank,
+                        },
+                        ["Ura"] = new JsonObject()
+                        {
+                            ["Points"] = song.Points[EnsoData.EnsoLevelType.Ura].Points,
+                            ["ScoreRank"] = song.Points[EnsoData.EnsoLevelType.Ura].ScoreRank,
+                        }
+                    };
+                    array.Add(obj);
+                }
+
+                File.WriteAllText(FilePath, array.ToJsonString());
+            }
         }
 
         public static int GetOkPoints(int points)
@@ -255,6 +278,11 @@ namespace NijiiroScoring.Plugins
                 return points / 2 - 5;
             }
             return points / 2;
+        }
+
+        public static void PauseExporting(bool pause)
+        {
+            IsPauseExporting = pause;
         }
     }
 }
