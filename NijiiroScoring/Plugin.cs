@@ -21,6 +21,7 @@ namespace NijiiroScoring
 
 
         public ConfigEntry<bool> ConfigEnabled;
+        //public ConfigEntry<bool> ConfigAlwaysCalculate;
         public ConfigEntry<string> ConfigTakoTakoPath;
 
 
@@ -43,6 +44,12 @@ namespace NijiiroScoring
                 "Enabled",
                 true,
                 "Enables the mod.");
+
+            // This config didn't work the way I had planned
+            //ConfigAlwaysCalculate = Config.Bind("General",
+            //    "AlwaysCalculate",
+            //    false,
+            //    "Set this to true to always calculate song's nijiro values if they are invalid. This can fix rare issues where songs aren't being calculated. ");
 
             ConfigTakoTakoPath = Config.Bind("General",
                 "TakoTakoPath",

@@ -11,6 +11,7 @@ using Scripts.UserData;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -162,6 +163,11 @@ namespace NijiiroScoring.Plugins
                     continue;
                 }
 
+#if DEBUG
+                Stopwatch sw = Stopwatch.StartNew();
+#endif
+
+                yield return SongDataManager.VerifySongDataPoints(musicInfo.Id);
                 for (EnsoData.EnsoLevelType j = 0; j < EnsoData.EnsoLevelType.Num; j++)
                 {
                     if (musicInfo.Stars[(int)j] == 0)
@@ -175,14 +181,8 @@ namespace NijiiroScoring.Plugins
                     int numOks = result.normalHiScore.good;
                     int numRenda = result.normalHiScore.renda;
 
-                    bool calculate = true;
-                    if ((musicInfo.InPackage == InPackageType.DispOnly || musicInfo.InPackage == InPackageType.None) &&
-                        !data.IsDownloaded)
-                    {
-                        calculate = false;
-                    }
 
-                    yield return SongDataManager.VerifySongDataPoints(musicInfo.Id, j, calculate);
+                    //yield return SongDataManager.VerifySongDataPoints(musicInfo.Id, j, calculate);
                     var points = SongDataManager.GetSongDataPoints(musicInfo.Id, j);
 
                     if (points == null)
@@ -231,6 +231,10 @@ namespace NijiiroScoring.Plugins
 
                     data.normalRecordInfo[0][(int)j] = hiScore;
                 }
+#if DEBUG
+                sw.Stop();
+                Logger.Log("Song number " + i + " took " + sw.ElapsedMilliseconds + "ms");
+#endif
             }
             SongDataManager.PauseExporting(false);
             SongDataManager.ExportSongData();
@@ -244,6 +248,7 @@ namespace NijiiroScoring.Plugins
         [HarmonyPostfix]
         public static void MusicsData_AddDownloadedSong_Postfix(MusicsData __instance, int songUid)
         {
+            Logger.Log("New song downloaded");
             Plugin.Instance.StartCoroutine(SongDataManager.VerifySongDataPoints(songUid));
         }
     }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -115,92 +116,103 @@ namespace NijiiroScoring.Plugins
             }
         }
 
-        static IEnumerator CalculateSongPointValues(string songId, bool calculate)
+        static IEnumerator CalculateSongPointValues(string songId, EnsoData.EnsoLevelType level)
         {
             MusicDataInterface.MusicInfoAccesser musicInfo = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData.GetInfoById(songId);
-            SongData data = new SongData();
-            data.SongId = songId;
-            for (EnsoData.EnsoLevelType i = 0; i < EnsoData.EnsoLevelType.Num; i++)
+            SongDataPoints points = new SongDataPoints();
+            points.Points = 0;
+            points.ScoreRank = 0;
+            if (musicInfo.Stars[(int)level] != 0)
             {
-                if (musicInfo.Stars[(int)i] == 0 || !calculate)
-                {
-                    SongDataPoints points = new SongDataPoints();
-                    points.Points = 0;
-                    points.ScoreRank = 0;
-                    data.Points.Add(i, points);
-                    continue;
-                }
-                Logger.Log("CalculateSongPointValues(" + songId + ", " + i.ToString() + ")", LogType.Debug);
-                yield return GetFumenDataHook.GetFumenData(songId, i);
-                var bytes = GetFumenDataHook.GetFumenDataResult(songId, i);
+                //Logger.Log("CalculateSongPointValues(" + songId + ", " + level.ToString() + ") (Single)", LogType.Debug);
+                yield return GetFumenDataHook.GetFumenData(songId, level);
+                var bytes = GetFumenDataHook.GetFumenDataResult(songId, level);
                 if (bytes.Length > 0)
                 {
                     // Do parsing stuff here, probably through my ChartConverter.dll
                     var chart = ChartConverterLib.Fumen.ReadFumen(bytes, false);
                     var chartPoints = chart.GetPointsAndScore();
-                    SongDataPoints points = new SongDataPoints();
                     points.Points = chartPoints.points;
                     points.ScoreRank = chartPoints.score;
-                    data.Points.Add(i, points);
+                }
+            }
+
+            if (AllSongData.ContainsKey(songId))
+            {
+                if (AllSongData[songId].Points.ContainsKey(level))
+                {
+                    AllSongData[songId].Points[level] = points;
                 }
                 else
                 {
-                    SongDataPoints points = new SongDataPoints();
-                    points.Points = 0;
-                    points.ScoreRank = 0;
-                    data.Points.Add(i, points);
+                    AllSongData[songId].Points.Add(level, points);
                 }
-            }
-            if (AllSongData.ContainsKey(songId))
-            {
-                AllSongData[songId] = data;
             }
             else
             {
+                SongData data = new SongData();
+                data.SongId = songId;
+                data.Points.Add(level, points);
                 AllSongData.Add(songId, data);
             }
-            ExportSongData();
         }
-        public static IEnumerator VerifySongDataPoints(int uniqueId, bool calculate = true)
+
+        public static IEnumerator VerifySongDataPoints(int uniqueId)
         {
             MusicDataInterface.MusicInfoAccesser musicInfo = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData.GetInfoByUniqueId(uniqueId);
+            List<Coroutine> coroutines = new List<Coroutine>();
             for (EnsoData.EnsoLevelType i = 0; i < EnsoData.EnsoLevelType.Num; i++)
             {
-                if (musicInfo.Stars[(int)i] != 0)
+                if (SongDataRequiresCalculating(musicInfo.Id, i))
                 {
-                    yield return VerifySongDataPoints(musicInfo.Id, i, calculate);
+                    coroutines.Add(Plugin.Instance.StartCoroutine(VerifySongDataPoints2(musicInfo.Id, i)));
                 }
+                //VerifySongDataPoints(musicInfo.Id, i, calculate);
+            }
+            for (int i = 0; i < coroutines.Count; i++)
+            {
+                yield return coroutines[i];
             }
         }
         public static IEnumerator VerifySongDataPoints(string songId)
         {
             MusicDataInterface.MusicInfoAccesser musicInfo = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData.GetInfoById(songId);
+
+            List<Coroutine> coroutines = new List<Coroutine>();
             for (EnsoData.EnsoLevelType i = 0; i < EnsoData.EnsoLevelType.Num; i++)
             {
-                if (musicInfo.Stars[(int)i] != 0)
+                if (SongDataRequiresCalculating(songId, i))
                 {
-                    yield return VerifySongDataPoints(songId, i);
+                    coroutines.Add(Plugin.Instance.StartCoroutine(VerifySongDataPoints2(songId, i)));
                 }
+                //VerifySongDataPoints(songId, i, calculate);
+            }
+            for (int i = 0; i < coroutines.Count; i++)
+            {
+                yield return coroutines[i];
             }
         }
-        public static IEnumerator VerifySongDataPoints(string songId, EnsoData.EnsoLevelType level, bool calculate = true)
+        public static IEnumerator VerifySongDataPoints(string songId, EnsoData.EnsoLevelType level)
         {
             Initialize();
 
             if (!AllSongData.ContainsKey(songId))
             {
                 InitializeFromTakoTako();
+                if (!AllSongData.ContainsKey(songId))
+                {
+                    yield return CalculateSongPointValues(songId, level);
+                    if (!AllSongData.ContainsKey(songId))
+                    {
+                        // It shouldn't really ever get here I think
+                        Logger.Log("Error parsing song: " + songId, LogType.Error);
+                    }
+                }
             }
-
-            if (!AllSongData.ContainsKey(songId))
+            var data = AllSongData[songId];
+            if (!data.Points.ContainsKey(level))
             {
-                yield return CalculateSongPointValues(songId, calculate);
-            }
-
-            if (!AllSongData.ContainsKey(songId))
-            {
-                // It shouldn't really ever get here I think
-                Logger.Log("Error parsing song: " + songId, LogType.Error);
+                yield return CalculateSongPointValues(songId, level);
             }
             else
             {
@@ -211,7 +223,75 @@ namespace NijiiroScoring.Plugins
                     result.ScoreRank == 1000000
                     ))
                 {
-                    yield return CalculateSongPointValues(songId, calculate);
+                    yield return CalculateSongPointValues(songId, level);
+                }
+            }
+        }
+
+        public static bool SongDataRequiresCalculating(string songId, EnsoData.EnsoLevelType level)
+        {
+            Initialize();
+
+            if (!AllSongData.ContainsKey(songId))
+            {
+                InitializeFromTakoTako();
+                if (!AllSongData.ContainsKey(songId))
+                {
+                    return true;
+                }
+            }
+            var data = AllSongData[songId];
+            if (!data.Points.ContainsKey(level))
+            {
+                return true;
+            }
+            else
+            {
+                var result = AllSongData[songId].Points[level];
+                if (result.Points == 0 ||
+                    result.ScoreRank == 0 ||
+                    (result.Points == 1000 &&
+                    result.ScoreRank == 1000000
+                    ))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public static IEnumerator VerifySongDataPoints2(string songId, EnsoData.EnsoLevelType level)
+        {
+            if (AllSongData.ContainsKey(songId))
+            {
+                var songData = AllSongData[songId];
+                if (songData.Points.ContainsKey(level))
+                {
+                    var points = songData.Points[level];
+                    if (points.Points == 0 ||
+                        points.ScoreRank == 0 ||
+                        (points.Points == 1000 &&
+                        points.ScoreRank == 1000000))
+                    {
+                        yield return CalculateSongPointValues(songId, level);
+                    }
+                }
+            }
+            else
+            {
+                Initialize();
+                if (!AllSongData.ContainsKey(songId))
+                {
+                    InitializeFromTakoTako();
+                    if (!AllSongData.ContainsKey(songId))
+                    {
+                        yield return CalculateSongPointValues(songId, level);
+                        if (!AllSongData.ContainsKey(songId))
+                        {
+                            // It shouldn't really ever get here I think
+                            Logger.Log("Error parsing song: " + songId, LogType.Error);
+                        }
+                    }
                 }
             }
         }

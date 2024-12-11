@@ -53,6 +53,7 @@ namespace NijiiroScoring.Plugins
                     data.level = level;
                     ReadFumenData.Add(data);
                     yield return TaikoSingletonMonoBehaviour<CommonObjects>.Instance.StartCoroutine(playerData.ReadLocalStorageDataCoroutine(musicInfo.UniqueId, fumenPath));
+                    //playerData.ReadLocalStorageDataCoroutine(musicInfo.UniqueId, fumenPath);
                 }
                 else if (musicInfo.InPackage == MusicDataInterface.InPackageType.HasSongAndFumen)
                 {
@@ -63,6 +64,7 @@ namespace NijiiroScoring.Plugins
                     data.level = level;
                     ReadFumenData.Add(data);
                     yield return TaikoSingletonMonoBehaviour<CommonObjects>.Instance.StartCoroutine(playerData.ReadCoroutine(filePath));
+                    //playerData.ReadCoroutine(filePath);
                 }
             }
         }

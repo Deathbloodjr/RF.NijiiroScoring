@@ -1,6 +1,9 @@
 # RF.NijiiroScoring
  A Rhythm Festival mod to change Gen3 scoring to Nijiiro scoring.
  
+ This mod will overwrite all of your highscores, replacing the old Gen3 score with Nijiro's score. It will keep your actual performance though (goods, oks, etc)
+ 
+ 
 # Requirements
  Visual Studio 2022 or newer\
  Taiko no Tatsujin: Rhythm Festival
