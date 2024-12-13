@@ -6,6 +6,7 @@ using Il2CppInterop.Runtime.Startup;
 using Il2CppSystem;
 using Il2CppSystem.Runtime.Serialization;
 using Scripts.GameSystem;
+using Scripts.OutGame.Help;
 using Scripts.OutGame.Title;
 using Scripts.UserData;
 using System;
@@ -21,6 +22,7 @@ using UnityEngine.InputSystem.Utilities;
 using WebSocketSharp;
 using static DataConst;
 using static MusicDataInterface;
+using static TaikoCoreTypes;
 
 namespace NijiiroScoring.Plugins
 {
@@ -33,6 +35,55 @@ namespace NijiiroScoring.Plugins
 
         static int Points = 1000;
 
+        static int UpdateFrameResults = -1;
+
+        static List<OnpuTypes> NoteTypes = new List<OnpuTypes>()
+        {
+            OnpuTypes.Don,
+            OnpuTypes.Do,
+            OnpuTypes.Ko,
+            OnpuTypes.Katsu,
+            OnpuTypes.Ka,
+            OnpuTypes.DaiDon,
+            OnpuTypes.DaiKatsu,
+
+            OnpuTypes.WDon,
+            OnpuTypes.WKatsu,
+            OnpuTypes.KyodaiDon,
+            OnpuTypes.KyodaiKatsu,
+            OnpuTypes.SeparateRyoDon,
+            OnpuTypes.SeparateRyoDo,
+            OnpuTypes.SeparateRyoKo,
+            OnpuTypes.SeparateRyoKatsu,
+            OnpuTypes.SeparateRyoKa,
+            OnpuTypes.SeparateKaDon,
+            OnpuTypes.SeparateKaDo,
+            OnpuTypes.SeparateKaKo,
+            OnpuTypes.SeparateKaKatsu,
+            OnpuTypes.SeparateKaKa,
+        };
+        static List<OnpuTypes> RendaTypes = new List<OnpuTypes>()
+        {
+            OnpuTypes.Renda,
+            OnpuTypes.DaiRenda,
+            OnpuTypes.GekiRenda,
+            OnpuTypes.Imo,
+        };
+
+        [HarmonyPatch(typeof(EnsoGameManager))]
+        [HarmonyPatch(nameof(EnsoGameManager.ProcExecMain))]
+        [HarmonyPatch(MethodType.Normal)]
+        [HarmonyPrefix]
+        public static void EnsoGameManager_ProcExecMain_Prefix(EnsoGameManager __instance)
+        {
+            if (IsEnabled)
+            {
+                // GetFrameResults ends up getting called 8 or so times per frame
+                // After the 4th time it's called, we want to take action on the result of it
+                UpdateFrameResults = 4;
+            }
+        }
+
         // This works for setting the score directly
         [HarmonyPatch(typeof(TaikoCorePlayer))]
         [HarmonyPatch(nameof(TaikoCorePlayer.GetFrameResults))]
@@ -40,10 +91,53 @@ namespace NijiiroScoring.Plugins
         [HarmonyPostfix]
         static void TaikoCorePlayer_GetFrameResults_Postfix(TaikoCorePlayer __instance, ref TaikoCoreFrameResults __result)
         {
-            //Plugin.Log.LogInfo("TaikoCorePlayer_GetFrameResults_Postfix");
+            // Plugin.Log.LogInfo("TaikoCorePlayer_GetFrameResults_Postfix");
 
             if (IsEnabled)
             {
+                UpdateFrameResults--;
+                if (UpdateFrameResults != 0)
+                {
+                    return;
+                }
+
+                for (int i = 0; i < __result.hitResultInfoNum; i++)
+                {
+                    var hitResult = __result.hitResultInfo[i];
+                    if (hitResult.player != 0)
+                    {
+                        continue;
+                    }
+                    var type = (OnpuTypes)hitResult.onpuType;
+                    var result = (HitResultTypes)hitResult.hitResult;
+                    if (type == OnpuTypes.None || result == HitResultTypes.None)
+                    {
+                        continue;
+                    }
+                    hitResult.addBonusScore = 0;
+                    //Logger.Log(type.ToString());
+                    //Logger.Log(result.ToString());
+                    if (NoteTypes.Contains(type))
+                    {
+                        if (result == HitResultTypes.Ryo)
+                        {
+                            hitResult.addScore = Points;
+                        }
+                        else if (result == HitResultTypes.Ka)
+                        {
+                            hitResult.addScore = SongDataManager.GetOkPoints(Points);
+                        }
+                    }
+                    else if (RendaTypes.Contains(type))
+                    {
+                        if (result == HitResultTypes.Ryo)
+                        {
+                            hitResult.addScore = 100;
+                        }
+                    }
+                    __result.hitResultInfo[i] = hitResult;
+                }
+
                 for (int i = 0; i < __result.eachPlayer.Length; i++)
                 {
                     var eachPlayer = __result.eachPlayer[i];
@@ -70,21 +164,6 @@ namespace NijiiroScoring.Plugins
             }
         }
 
-        // This works properly for adjusting the score change amount
-        [HarmonyPatch(typeof(ScorePlayer))]
-        [HarmonyPatch(nameof(ScorePlayer.SetAddScorePool))]
-        [HarmonyPatch(MethodType.Normal)]
-        [HarmonyPrefix]
-        static void ScorePlayer_SetAddScorePool_Prefix(ScorePlayer __instance, int index, ref int score)
-        {
-            if (IsEnabled)
-            {
-                if (ScoreIncreaseQueue.Count != 0)
-                {
-                    score = ScoreIncreaseQueue.Dequeue();
-                }
-            }
-        }
 
         // I can't test if this function works properly
         [HarmonyPatch(typeof(EnsoGameManager))]
