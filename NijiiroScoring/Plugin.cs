@@ -53,7 +53,7 @@ namespace NijiiroScoring
 
             ConfigTakoTakoPath = Config.Bind("General",
                 "TakoTakoPath",
-                "BepInEx/data/TakoTako/customSongs",
+                Path.Combine("BepInEx", "data", "TakoTako", "customSongs"),
                 "The folder path to your TakoTako customSongs directory from TDMX. " +
                 "Leave blank if you don't want to import point values from TDMX.");
         }

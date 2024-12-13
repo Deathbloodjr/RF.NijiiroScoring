@@ -24,12 +24,12 @@ using static MusicDataInterface;
 
 namespace NijiiroScoring.Plugins
 {
-    internal class NijiroScoringPatch
+    public class NijiroScoringPatch
     {
         static Queue<int> ScoreIncreaseQueue = new Queue<int>();
         static uint CurrentScore;
 
-        static bool IsEnabled = false;
+        public static bool IsEnabled = false;
 
         static int Points = 1000;
 
@@ -38,7 +38,7 @@ namespace NijiiroScoring.Plugins
         [HarmonyPatch(nameof(TaikoCorePlayer.GetFrameResults))]
         [HarmonyPatch(MethodType.Normal)]
         [HarmonyPostfix]
-        public static void TaikoCorePlayer_GetFrameResults_Postfix(TaikoCorePlayer __instance, ref TaikoCoreFrameResults __result)
+        static void TaikoCorePlayer_GetFrameResults_Postfix(TaikoCorePlayer __instance, ref TaikoCoreFrameResults __result)
         {
             //Plugin.Log.LogInfo("TaikoCorePlayer_GetFrameResults_Postfix");
 
@@ -75,7 +75,7 @@ namespace NijiiroScoring.Plugins
         [HarmonyPatch(nameof(ScorePlayer.SetAddScorePool))]
         [HarmonyPatch(MethodType.Normal)]
         [HarmonyPrefix]
-        public static void ScorePlayer_SetAddScorePool_Prefix(ScorePlayer __instance, int index, ref int score)
+        static void ScorePlayer_SetAddScorePool_Prefix(ScorePlayer __instance, int index, ref int score)
         {
             if (IsEnabled)
             {
@@ -91,21 +91,28 @@ namespace NijiiroScoring.Plugins
         [HarmonyPatch(nameof(EnsoGameManager.ProcLoading))]
         [HarmonyPatch(MethodType.Normal)]
         [HarmonyPrefix]
-        public static void EnsoGameManager_ProcLoading_Prefix(EnsoGameManager __instance)
+        static void EnsoGameManager_ProcLoading_Prefix(EnsoGameManager __instance)
         {
             if (__instance.ensoParam.IsOnlineMode == false)
             {
-                IsEnabled = true;
-                var musicInfo = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData.GetInfoByUniqueId(__instance.settings.musicUniqueId);
-                var points = SongDataManager.GetSongDataPoints(musicInfo.Id, __instance.settings.ensoPlayerSettings[0].courseType);
-                CurrentScore = 0;
-                if (points != null)
+                if (__instance.settings.ensoPlayerSettings[0].shinuchi == OptionOnOff.On)
                 {
-                    Points = points.Points;
+                    IsEnabled = false;
                 }
                 else
                 {
-                    IsEnabled = false;
+                    IsEnabled = true;
+                    var musicInfo = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData.GetInfoByUniqueId(__instance.settings.musicUniqueId);
+                    var points = SongDataManager.GetSongDataPoints(musicInfo.Id, __instance.settings.ensoPlayerSettings[0].courseType);
+                    CurrentScore = 0;
+                    if (points != null)
+                    {
+                        Points = points.Points;
+                    }
+                    else
+                    {
+                        IsEnabled = false;
+                    }
                 }
             }
             else
@@ -120,7 +127,7 @@ namespace NijiiroScoring.Plugins
         [HarmonyPatch(nameof(UserData.OnLoaded))]
         [HarmonyPatch(MethodType.Normal)]
         [HarmonyPostfix]
-        public static void UserData_OnLoaded_Postfix()
+        static void UserData_OnLoaded_Postfix()
         {
             Plugin.Instance.StartCoroutine(LoadSongPoints());
         }
@@ -246,7 +253,7 @@ namespace NijiiroScoring.Plugins
         [HarmonyPatch(nameof(MusicsData.AddDownloadedSong))]
         [HarmonyPatch(MethodType.Normal)]
         [HarmonyPostfix]
-        public static void MusicsData_AddDownloadedSong_Postfix(MusicsData __instance, int songUid)
+        static void MusicsData_AddDownloadedSong_Postfix(MusicsData __instance, int songUid)
         {
             Logger.Log("New song downloaded");
             Plugin.Instance.StartCoroutine(SongDataManager.VerifySongDataPoints(songUid));
