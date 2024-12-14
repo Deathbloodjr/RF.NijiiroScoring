@@ -119,6 +119,12 @@ namespace NijiiroScoring.Plugins
         static IEnumerator CalculateSongPointValues(string songId, EnsoData.EnsoLevelType level)
         {
             MusicDataInterface.MusicInfoAccesser musicInfo = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData.GetInfoById(songId);
+            return CalculateSongPointValues(musicInfo, level);
+        }
+
+        static IEnumerator CalculateSongPointValues(MusicDataInterface.MusicInfoAccesser musicInfo, EnsoData.EnsoLevelType level)
+        {
+            string songId = musicInfo.Id;
             SongDataPoints points = new SongDataPoints();
             points.Points = 0;
             points.ScoreRank = 0;
@@ -192,38 +198,60 @@ namespace NijiiroScoring.Plugins
                 yield return coroutines[i];
             }
         }
+
+        public static IEnumerator VerifySongDataPoints(MusicDataInterface.MusicInfoAccesser musicInfo)
+        {
+            List<Coroutine> coroutines = new List<Coroutine>();
+            for (EnsoData.EnsoLevelType i = 0; i < EnsoData.EnsoLevelType.Num; i++)
+            {
+                if (SongDataRequiresCalculating(musicInfo.Id, i))
+                {
+                    coroutines.Add(Plugin.Instance.StartCoroutine(VerifySongDataPoints2(musicInfo, i)));
+                }
+                //VerifySongDataPoints(songId, i, calculate);
+            }
+            for (int i = 0; i < coroutines.Count; i++)
+            {
+                yield return coroutines[i];
+            }
+        }
         public static IEnumerator VerifySongDataPoints(string songId, EnsoData.EnsoLevelType level)
+        {
+            MusicDataInterface.MusicInfoAccesser musicInfo = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData.GetInfoById(songId);
+            return VerifySongDataPoints(musicInfo, level);
+        }
+        public static IEnumerator VerifySongDataPoints(MusicDataInterface.MusicInfoAccesser musicInfo, EnsoData.EnsoLevelType level)
         {
             Initialize();
 
-            if (!AllSongData.ContainsKey(songId))
+            if (!AllSongData.ContainsKey(musicInfo.Id))
             {
                 InitializeFromTakoTako();
-                if (!AllSongData.ContainsKey(songId))
+                if (!AllSongData.ContainsKey(musicInfo.Id))
                 {
-                    yield return CalculateSongPointValues(songId, level);
-                    if (!AllSongData.ContainsKey(songId))
+                    yield return CalculateSongPointValues(musicInfo.Id, level);
+                    if (!AllSongData.ContainsKey(musicInfo.Id))
                     {
                         // It shouldn't really ever get here I think
-                        Logger.Log("Error parsing song: " + songId, LogType.Error);
+                        Logger.Log("Error parsing song: " + musicInfo.Id, LogType.Error);
                     }
                 }
             }
-            var data = AllSongData[songId];
+            var data = AllSongData[musicInfo.Id];
             if (!data.Points.ContainsKey(level))
             {
-                yield return CalculateSongPointValues(songId, level);
+                yield return CalculateSongPointValues(musicInfo.Id, level);
             }
             else
             {
-                var result = AllSongData[songId].Points[level];
+                var result = AllSongData[musicInfo.Id].Points[level];
                 if (result.Points == 0 ||
                     result.ScoreRank == 0 ||
                     (result.Points == 1000 &&
                     result.ScoreRank == 1000000
                     ))
                 {
-                    yield return CalculateSongPointValues(songId, level);
+                    yield return CalculateSongPointValues(musicInfo.Id, level);
                 }
             }
         }
@@ -262,9 +290,15 @@ namespace NijiiroScoring.Plugins
 
         public static IEnumerator VerifySongDataPoints2(string songId, EnsoData.EnsoLevelType level)
         {
-            if (AllSongData.ContainsKey(songId))
+            MusicDataInterface.MusicInfoAccesser musicInfo = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData.GetInfoById(songId);
+            return VerifySongDataPoints2(musicInfo, level);
+        }
+
+        public static IEnumerator VerifySongDataPoints2(MusicDataInterface.MusicInfoAccesser musicInfo, EnsoData.EnsoLevelType level)
+        {
+            if (AllSongData.ContainsKey(musicInfo.Id))
             {
-                var songData = AllSongData[songId];
+                var songData = AllSongData[musicInfo.Id];
                 if (songData.Points.ContainsKey(level))
                 {
                     var points = songData.Points[level];
@@ -273,23 +307,23 @@ namespace NijiiroScoring.Plugins
                         (points.Points == 1000 &&
                         points.ScoreRank == 1000000))
                     {
-                        yield return CalculateSongPointValues(songId, level);
+                        yield return CalculateSongPointValues(musicInfo, level);
                     }
                 }
             }
             else
             {
                 Initialize();
-                if (!AllSongData.ContainsKey(songId))
+                if (!AllSongData.ContainsKey(musicInfo.Id))
                 {
                     InitializeFromTakoTako();
-                    if (!AllSongData.ContainsKey(songId))
+                    if (!AllSongData.ContainsKey(musicInfo.Id))
                     {
-                        yield return CalculateSongPointValues(songId, level);
-                        if (!AllSongData.ContainsKey(songId))
+                        yield return CalculateSongPointValues(musicInfo, level);
+                        if (!AllSongData.ContainsKey(musicInfo.Id))
                         {
                             // It shouldn't really ever get here I think
-                            Logger.Log("Error parsing song: " + songId, LogType.Error);
+                            Logger.Log("Error parsing song: " + musicInfo.Id, LogType.Error);
                         }
                     }
                 }
