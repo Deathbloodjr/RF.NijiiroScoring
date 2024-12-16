@@ -29,10 +29,19 @@ namespace NijiiroScoring.Plugins
         public static IEnumerator GetFumenData(string songId, EnsoData.EnsoLevelType level)
         {
             var fumenData = ReadFumenData.Find((x) => x.songId == songId && x.level == level);
-            if (fumenData == null)
+            if (fumenData == null || fumenData.data.Length == 0)
             {
                 MusicDataInterface.MusicInfoAccesser musicInfo = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData.GetInfoById(songId);
+                yield return GetFumenData(musicInfo, level);
+            }
+        }
 
+        public static IEnumerator GetFumenData(MusicInfoAccesser musicInfo, EnsoData.EnsoLevelType level)
+        {
+            string songId = musicInfo.Id;
+            var fumenData = ReadFumenData.Find((x) => x.songId == songId && x.level == level);
+            if (fumenData == null ||fumenData.data.Length == 0)
+            {
                 string fumenPath = songId + "_";
                 switch (level)
                 {

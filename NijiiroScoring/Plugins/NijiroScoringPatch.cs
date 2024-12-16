@@ -563,7 +563,16 @@ namespace NijiiroScoring.Plugins
         static void MusicsData_AddDownloadedSong_Postfix(MusicsData __instance, int songUid)
         {
             Logger.Log("New song downloaded");
-            Plugin.Instance.StartCoroutine(SongDataManager.VerifySongDataPoints(songUid));
+            Plugin.Instance.StartCoroutine(UpdateNewlyDownloadedSong(songUid));
+
+        }
+
+        static IEnumerator UpdateNewlyDownloadedSong(int songUid)
+        {
+            yield return SongDataManager.VerifySongDataPoints(songUid);
+            MusicDataInterface.MusicInfoAccesser musicInfo = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData.GetInfoByUniqueId(songUid);
+            yield return LoadSongPointsByMusicInfo(musicInfo);
+            Logger.Log("Nijiro points calculated for newly downloaded song");
         }
     }
 }

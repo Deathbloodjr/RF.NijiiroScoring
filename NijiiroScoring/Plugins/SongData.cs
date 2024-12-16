@@ -131,7 +131,7 @@ namespace NijiiroScoring.Plugins
             if (musicInfo.Stars[(int)level] != 0)
             {
                 //Logger.Log("CalculateSongPointValues(" + songId + ", " + level.ToString() + ") (Single)", LogType.Debug);
-                yield return GetFumenDataHook.GetFumenData(songId, level);
+                yield return GetFumenDataHook.GetFumenData(musicInfo, level);
                 var bytes = GetFumenDataHook.GetFumenDataResult(songId, level);
                 if (bytes.Length > 0)
                 {
