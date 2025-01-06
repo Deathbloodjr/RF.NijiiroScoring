@@ -7,6 +7,8 @@ using BepInEx.Configuration;
 using NijiiroScoring.Plugins;
 using UnityEngine;
 using System.Collections;
+using UniRx;
+using BepInEx.Unity.IL2CPP.Utils.Collections;
 
 namespace NijiiroScoring
 {
@@ -113,6 +115,11 @@ namespace NijiiroScoring
         public Coroutine StartCoroutine(IEnumerator enumerator)
         {
             return GetMonoBehaviour().StartCoroutine(enumerator);
+        }
+
+        public void StartMicroCoroutine(IEnumerator enumerator)
+        {
+            MainThreadDispatcher.StartUpdateMicroCoroutine(enumerator.WrapToIl2Cpp());
         }
     }
 }
