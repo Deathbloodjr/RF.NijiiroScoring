@@ -29,13 +29,16 @@ namespace NijiiroScoring.Plugins
     public class NijiroScoringPatch
     {
         static Queue<int> ScoreIncreaseQueue = new Queue<int>();
-        static uint CurrentScore;
+        static int CurrentScore;
 
         public static bool IsEnabled = false;
 
         static int Points = 1000;
+        static int PointsOks = 500;
 
         static int UpdateFrameResults = -1;
+
+        static bool IsResults = false;
 
         static List<OnpuTypes> NoteTypes = new List<OnpuTypes>()
         {
@@ -73,6 +76,7 @@ namespace NijiiroScoring.Plugins
         static List<string> ParsedSongIds = new List<string>();
         static Dictionary<string, (MusicInfoAccesser musicInfo, bool isParsed)> ParsedMusicInfos = new Dictionary<string, (MusicInfoAccesser musicInfo, bool isParsed)>();
 
+        // This was used previously
         [HarmonyPatch(typeof(EnsoGameManager))]
         [HarmonyPatch(nameof(EnsoGameManager.ProcExecMain))]
         [HarmonyPatch(MethodType.Normal)]
@@ -87,6 +91,48 @@ namespace NijiiroScoring.Plugins
             }
         }
 
+        //[HarmonyPatch(typeof(EnsoInput))]
+        //[HarmonyPatch(nameof(EnsoInput.UpdateController))]
+        //[HarmonyPatch(MethodType.Normal)]
+        //[HarmonyPostfix]
+        static void EnsoInput_UpdateController_Postfix(EnsoInput __instance, EnsoInput.EnsoInputFlag __result)
+        {
+            if (IsEnabled)
+            {
+                if (__result != EnsoInput.EnsoInputFlag.None)
+                {
+                    UpdateFrameResults = 5;
+                }
+            }
+        }
+        //[HarmonyPatch(typeof(EnsoSound))]
+        //[HarmonyPatch(nameof(EnsoSound.KeyOnTone))]
+        //[HarmonyPatch(MethodType.Normal)]
+        //[HarmonyPrefix]
+        //static void EnsoSound_KeyOnTone_Prefix(EnsoSound __instance, EnsoInput input)
+        //{
+        //    if (IsEnabled)
+        //    {
+        //        if (input.playerNum == 0)
+        //        {
+
+        //            UpdateFrameResults = 1;
+        //        }
+        //    }
+        //}
+
+        [HarmonyPatch(typeof(EnsoGameManager))]
+        [HarmonyPatch(nameof(EnsoGameManager.SetResults))]
+        [HarmonyPatch(MethodType.Normal)]
+        [HarmonyPrefix]
+        public static void EnsoGameManager_SetResults_Prefix(EnsoGameManager __instance)
+        {
+            if (IsEnabled)
+            {
+                IsResults = true;
+            }
+        }
+
         // This works for setting the score directly
         [HarmonyPatch(typeof(TaikoCorePlayer))]
         [HarmonyPatch(nameof(TaikoCorePlayer.GetFrameResults))]
@@ -98,75 +144,177 @@ namespace NijiiroScoring.Plugins
 
             if (IsEnabled)
             {
-                UpdateFrameResults--;
-                if (UpdateFrameResults != 0)
+
+                
+
+                if (!IsResults)
                 {
-                    return;
+                    UpdateFrameResults--;
+                    if (UpdateFrameResults != 0 && !IsResults)
+                    {
+                        return;
+                    }
+
+
+                    int numCounted = 0;
+                    for (int i = 0; i < __result.hitResultInfoNum; i++)
+                    {
+                        var hitResult = __result.hitResultInfo[i];
+                        if (hitResult.player != 0)
+                        {
+                            continue;
+                        }
+                        var type = (OnpuTypes)hitResult.onpuType;
+                        var result = (HitResultTypes)hitResult.hitResult;
+                        if (type == OnpuTypes.None || result == HitResultTypes.None)
+                        {
+                            continue;
+                        }
+                        numCounted++;
+                        //hitResult.addBonusScore = 0;
+                        //Logger.Log(type.ToString());
+                        //Logger.Log(result.ToString());
+                        if (NoteTypes.Contains(type))
+                        {
+                            if (result == HitResultTypes.Ryo)
+                            {
+                                //hitResult.addScore = Points;
+                                ScoreIncreaseQueue.Enqueue(Points);
+                            }
+                            else if (result == HitResultTypes.Ka)
+                            {
+                                //hitResult.addScore = PointsOks;
+                                ScoreIncreaseQueue.Enqueue(PointsOks);
+                            }
+                        }
+                        else if (RendaTypes.Contains(type))
+                        {
+                            if (result == HitResultTypes.Ryo)
+                            {
+                                //hitResult.addScore = 100;
+                                ScoreIncreaseQueue.Enqueue(100);
+                            }
+                        }
+                        //__result.hitResultInfo[i] = hitResult;
+                    }
+                    // This causes the score to be incorrect for a frame
+                    //if (numCounted == 0)
+                    //{
+                    //    return;
+                    //}
+                    //for (int i = 0; i < Mathf.Min(1, __result.eachPlayer.Length); i++)
+                    //{
+                    //    var eachPlayer = __result.eachPlayer[i];
+
+                    //    var numGoods = __result.eachPlayer[i].countRyo;
+                    //    var numOk = __result.eachPlayer[i].countKa;
+                    //    var numRenda = __result.eachPlayer[i].countRenda;
+
+                    //    uint points = (uint)Points;
+                    //    uint pointsOks = (uint)PointsOks;
+
+                    //    uint newScore = (numGoods * points) + (numOk * pointsOks) + (numRenda * 100);
+                    //    //Plugin.Log.LogInfo("newScore: " + newScore);
+                    //    //Plugin.Log.LogInfo("__result.eachPlayer[" + i + "].score: " + __result.eachPlayer[i].score);
+                    //    if (newScore != CurrentScore)
+                    //    {
+                    //        //ScoreIncreaseQueue.Enqueue((int)(newScore - CurrentScore));
+                    //        CurrentScore = (int)newScore;
+                    //    }
+
+                    //    eachPlayer.score = newScore;
+                    //    __result.eachPlayer[i] = eachPlayer;
+                    //    //Plugin.Log.LogInfo("__result.eachPlayer[" + i + "].score: " + __result.eachPlayer[i].score);
+
+                    //}
                 }
-
-                for (int i = 0; i < __result.hitResultInfoNum; i++)
+                else
                 {
-                    var hitResult = __result.hitResultInfo[i];
-                    if (hitResult.player != 0)
+
+
+
+                    for (int i = 0; i < Mathf.Min(1, __result.eachPlayer.Length); i++)
                     {
-                        continue;
-                    }
-                    var type = (OnpuTypes)hitResult.onpuType;
-                    var result = (HitResultTypes)hitResult.hitResult;
-                    if (type == OnpuTypes.None || result == HitResultTypes.None)
-                    {
-                        continue;
-                    }
-                    hitResult.addBonusScore = 0;
-                    //Logger.Log(type.ToString());
-                    //Logger.Log(result.ToString());
-                    if (NoteTypes.Contains(type))
-                    {
-                        if (result == HitResultTypes.Ryo)
+                        var eachPlayer = __result.eachPlayer[i];
+
+                        var numGoods = __result.eachPlayer[i].countRyo;
+                        var numOk = __result.eachPlayer[i].countKa;
+                        var numRenda = __result.eachPlayer[i].countRenda;
+
+                        uint points = (uint)Points;
+                        uint pointsOks = (uint)PointsOks;
+
+                        uint newScore = (numGoods * points) + (numOk * pointsOks) + (numRenda * 100);
+                        //Plugin.Log.LogInfo("newScore: " + newScore);
+                        //Plugin.Log.LogInfo("__result.eachPlayer[" + i + "].score: " + __result.eachPlayer[i].score);
+                        if (newScore != CurrentScore)
                         {
-                            hitResult.addScore = Points;
+                            //ScoreIncreaseQueue.Enqueue((int)(newScore - CurrentScore));
+                            CurrentScore = (int)newScore;
                         }
-                        else if (result == HitResultTypes.Ka)
-                        {
-                            hitResult.addScore = SongDataManager.GetOkPoints(Points);
-                        }
+
+                        eachPlayer.score = newScore;
+                        __result.eachPlayer[i] = eachPlayer;
+                        //Plugin.Log.LogInfo("__result.eachPlayer[" + i + "].score: " + __result.eachPlayer[i].score);
+
                     }
-                    else if (RendaTypes.Contains(type))
-                    {
-                        if (result == HitResultTypes.Ryo)
-                        {
-                            hitResult.addScore = 100;
-                        }
-                    }
-                    __result.hitResultInfo[i] = hitResult;
-                }
-
-                for (int i = 0; i < __result.eachPlayer.Length; i++)
-                {
-                    var eachPlayer = __result.eachPlayer[i];
-
-                    var numGoods = __result.eachPlayer[i].countRyo;
-                    var numOk = __result.eachPlayer[i].countKa;
-                    var numRenda = __result.eachPlayer[i].countRenda;
-
-                    uint points = (uint)Points;
-
-                    uint newScore = (numGoods * points) + (numOk * (uint)SongDataManager.GetOkPoints(Points)) + (numRenda * 100);
-                    //Plugin.Log.LogInfo("newScore: " + newScore);
-                    //Plugin.Log.LogInfo("__result.eachPlayer[" + i + "].score: " + __result.eachPlayer[i].score);
-                    if (newScore != CurrentScore)
-                    {
-                        ScoreIncreaseQueue.Enqueue((int)(newScore - CurrentScore));
-                        CurrentScore = newScore;
-                    }
-                    eachPlayer.score = newScore;
-                    __result.eachPlayer[i] = eachPlayer;
-                    //Plugin.Log.LogInfo("__result.eachPlayer[" + i + "].score: " + __result.eachPlayer[i].score);
-
                 }
             }
         }
 
+        [HarmonyPatch(typeof(ScorePlayer))]
+        [HarmonyPatch(nameof(ScorePlayer.SetAddScorePool))]
+        [HarmonyPatch(MethodType.Normal)]
+        [HarmonyPrefix]
+        public static void ScorePlayer_SetAddScorePool_Prefix(ScorePlayer __instance, int index, ref int score)
+        {
+            if (IsEnabled)
+            {
+                if (ScoreIncreaseQueue.Count != 0)
+                {
+                    score = ScoreIncreaseQueue.Dequeue();
+                    CurrentScore += score;
+                }
+            }
+        }
+
+        [HarmonyPatch(typeof(ScorePlayer))]
+        [HarmonyPatch(nameof(ScorePlayer.SetScore))]
+        [HarmonyPatch(MethodType.Normal)]
+        [HarmonyPrefix]
+        public static void ScorePlayer_SetScore_Prefix(ScorePlayer __instance, ref int score, ref bool enableGreenLight, ref bool enableHighScoreBg, ref bool enableHighScoreEffect)
+        {
+            if (IsEnabled)
+            {
+                enableGreenLight = false;
+                enableHighScoreBg = false;
+                enableHighScoreEffect = false;
+
+                score = CurrentScore;
+                if (score >= __instance.m_iHighScore)
+                {
+                    if (__instance.m_iReachScore < __instance.m_iHighScore)
+                    {
+                        enableHighScoreEffect = true;
+                    }
+                    else
+                    {
+                        enableHighScoreBg = true;
+                    }
+                }
+                else if (score >= __instance.m_iReachScore)
+                {
+                    enableGreenLight = true;
+                }
+                List<string> output = new List<string>()
+                {
+                    "__instance.m_iHighScore: " + __instance.m_iHighScore,
+                    "__instance.m_iPrevScore: " + __instance.m_iPrevScore,
+                    "__instance.m_iReachScore: " + __instance.m_iReachScore,
+                };
+                Logger.Log(output);
+            }
+        }
 
         // I can't test if this function works properly
         [HarmonyPatch(typeof(EnsoGameManager))]
@@ -187,9 +335,11 @@ namespace NijiiroScoring.Plugins
                     var musicInfo = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData.GetInfoByUniqueId(__instance.settings.musicUniqueId);
                     var points = SongDataManager.GetSongDataPoints(musicInfo.Id, __instance.settings.ensoPlayerSettings[0].courseType);
                     CurrentScore = 0;
+                    IsResults = false;
                     if (points != null)
                     {
                         Points = points.Points;
+                        PointsOks = SongDataManager.GetOkPoints(Points);
                     }
                     else
                     {
