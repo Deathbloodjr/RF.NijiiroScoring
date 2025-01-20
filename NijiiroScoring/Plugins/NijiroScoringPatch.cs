@@ -77,10 +77,10 @@ namespace NijiiroScoring.Plugins
         static Dictionary<string, (MusicInfoAccesser musicInfo, bool isParsed)> ParsedMusicInfos = new Dictionary<string, (MusicInfoAccesser musicInfo, bool isParsed)>();
 
         // This was used previously
-        [HarmonyPatch(typeof(EnsoGameManager))]
-        [HarmonyPatch(nameof(EnsoGameManager.ProcExecMain))]
-        [HarmonyPatch(MethodType.Normal)]
-        [HarmonyPrefix]
+        //[HarmonyPatch(typeof(EnsoGameManager))]
+        //[HarmonyPatch(nameof(EnsoGameManager.ProcExecMain))]
+        //[HarmonyPatch(MethodType.Normal)]
+        //[HarmonyPrefix]
         public static void EnsoGameManager_ProcExecMain_Prefix(EnsoGameManager __instance)
         {
             if (IsEnabled)
@@ -91,17 +91,17 @@ namespace NijiiroScoring.Plugins
             }
         }
 
-        //[HarmonyPatch(typeof(EnsoInput))]
-        //[HarmonyPatch(nameof(EnsoInput.UpdateController))]
-        //[HarmonyPatch(MethodType.Normal)]
-        //[HarmonyPostfix]
+        [HarmonyPatch(typeof(EnsoInput))]
+        [HarmonyPatch(nameof(EnsoInput.UpdateController))]
+        [HarmonyPatch(MethodType.Normal)]
+        [HarmonyPostfix]
         static void EnsoInput_UpdateController_Postfix(EnsoInput __instance, EnsoInput.EnsoInputFlag __result)
         {
             if (IsEnabled)
             {
                 if (__result != EnsoInput.EnsoInputFlag.None)
                 {
-                    UpdateFrameResults = 5;
+                    UpdateFrameResults = 1;
                 }
             }
         }
@@ -282,12 +282,12 @@ namespace NijiiroScoring.Plugins
         [HarmonyPatch(nameof(ScorePlayer.SetScore))]
         [HarmonyPatch(MethodType.Normal)]
         [HarmonyPrefix]
-        public static void ScorePlayer_SetScore_Prefix(ScorePlayer __instance, ref int score, ref bool enableGreenLight, ref bool enableHighScoreBg, ref bool enableHighScoreEffect)
+        public static void ScorePlayer_SetScore_Prefix(ScorePlayer __instance, ref int score, ref bool enableGreenLight, ref bool enableHighScoreBG, ref bool enableHighScoreEffect)
         {
             if (IsEnabled)
             {
                 enableGreenLight = false;
-                enableHighScoreBg = false;
+                enableHighScoreBG = false;
                 enableHighScoreEffect = false;
 
                 score = CurrentScore;
@@ -299,7 +299,7 @@ namespace NijiiroScoring.Plugins
                     }
                     else
                     {
-                        enableHighScoreBg = true;
+                        enableHighScoreBG = true;
                     }
                 }
                 else if (score >= __instance.m_iReachScore)
