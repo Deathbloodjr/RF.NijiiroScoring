@@ -71,6 +71,7 @@ namespace NijiiroScoring
                 // If any PatchFile fails, result will become false
                 result &= PatchFile(typeof(GetFumenDataHook));
                 result &= PatchFile(typeof(NijiroScoringPatch));
+                result &= PatchFile(typeof(NijiroScoreLoading));
                 if (result)
                 {
                     Log.LogInfo($"Plugin {MyPluginInfo.PLUGIN_NAME} is loaded!");
