@@ -200,7 +200,7 @@ namespace NijiiroScoring.Plugins
         [HarmonyPatch(nameof(EnsoPlayingParameter.GetFrameResults))]
         [HarmonyPatch(MethodType.Normal)]
         [HarmonyPostfix]
-        static void TaikoCoreFrameResults_GetEachPlayer_Postfix(EnsoPlayingParameter __instance, ref TaikoCoreFrameResults __result)
+        static void EnsoPlayingParameter_GetFrameResults_Postfix(EnsoPlayingParameter __instance, ref TaikoCoreFrameResults __result)
         {
             if (IsResult)
             {
