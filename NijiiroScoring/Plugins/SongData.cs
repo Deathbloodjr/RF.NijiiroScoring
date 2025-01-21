@@ -245,11 +245,7 @@ namespace NijiiroScoring.Plugins
             else
             {
                 var result = AllSongData[musicInfo.Id].Points[level];
-                if (result.Points == 0 ||
-                    result.ScoreRank == 0 ||
-                    (result.Points == 1000 &&
-                    result.ScoreRank == 1000000
-                    ))
+                if (!IsValidPoints(result.Points, result.ScoreRank))
                 {
                     yield return CalculateSongPointValues(musicInfo.Id, level);
                 }
@@ -276,11 +272,7 @@ namespace NijiiroScoring.Plugins
             else
             {
                 var result = AllSongData[songId].Points[level];
-                if (result.Points == 0 ||
-                    result.ScoreRank == 0 ||
-                    (result.Points == 1000 &&
-                    result.ScoreRank == 1000000
-                    ))
+                if (!IsValidPoints(result.Points, result.ScoreRank))
                 {
                     return true;
                 }
@@ -302,10 +294,7 @@ namespace NijiiroScoring.Plugins
                 if (songData.Points.ContainsKey(level))
                 {
                     var points = songData.Points[level];
-                    if (points.Points == 0 ||
-                        points.ScoreRank == 0 ||
-                        (points.Points == 1000 &&
-                        points.ScoreRank == 1000000))
+                    if (!IsValidPoints(points.Points, points.ScoreRank))
                     {
                         yield return CalculateSongPointValues(musicInfo, level);
                     }
@@ -397,6 +386,25 @@ namespace NijiiroScoring.Plugins
         public static void PauseExporting(bool pause)
         {
             IsPauseExporting = pause;
+        }
+
+        static bool IsValidPoints(int points, int scoreRank)
+        {
+            // I'm doing this stupidly at first, I'll make it better later when I can better define invalid points
+            if (points == 0 || scoreRank == 0)
+            {
+                return false;
+            }
+            if (scoreRank < 900000)
+            {
+                return false;
+            }
+            if (points == 1000 && scoreRank == 1000000)
+            {
+                return false;
+            }
+
+            return true;
         }
     }
 }
