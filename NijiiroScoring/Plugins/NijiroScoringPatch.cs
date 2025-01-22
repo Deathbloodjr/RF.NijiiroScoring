@@ -117,13 +117,13 @@ namespace NijiiroScoring.Plugins
                         realHighScore = __instance.m_iHighScore;
                         __instance.m_iHighScore = 9999999;
                     }
-                    List<string> output = new List<string>()
-                    {
-                        "__instance.m_iHighScore: " + __instance.m_iHighScore,
-                        "realHighScore: " + realHighScore,
-                        "__instance.m_iPrevScore: " + __instance.m_iPrevScore,
-                        "__instance.m_iReachScore: " + __instance.m_iReachScore,
-                    };
+                    //List<string> output = new List<string>()
+                    //{
+                    //    "__instance.m_iHighScore: " + __instance.m_iHighScore,
+                    //    "realHighScore: " + realHighScore,
+                    //    "__instance.m_iPrevScore: " + __instance.m_iPrevScore,
+                    //    "__instance.m_iReachScore: " + __instance.m_iReachScore,
+                    //};
                     if (realHighScore != 0)
                     {
                         if (score >= realHighScore)
@@ -136,9 +136,9 @@ namespace NijiiroScoring.Plugins
                             }
                             if (__instance.m_iReachScore < realHighScore)
                             {
-                                output.Add("enableHighScoreEffect");
-                                output.Add("enableHighScoreBG");
-                                output.Add("enableGreenLight");
+                                //output.Add("enableHighScoreEffect");
+                                //output.Add("enableHighScoreBG");
+                                //output.Add("enableGreenLight");
                                 enableHighScoreEffect = true;
                                 enableHighScoreBG = true;
                                 enableGreenLight = true;
@@ -150,7 +150,7 @@ namespace NijiiroScoring.Plugins
                         }
                         else if (score >= __instance.m_iReachScore)
                         {
-                            output.Add("enableGreenLight");
+                            //output.Add("enableGreenLight");
                             enableGreenLight = true;
                         }
                         else
@@ -159,24 +159,14 @@ namespace NijiiroScoring.Plugins
                         }
                     }
                     
-                    Logger.Log(output);
+                    //Logger.Log(output);
                     return true;
                 }
                 return false;
             }
-            Logger.Log("Set Score Return True");
+            //Logger.Log("Set Score Return True");
             return true;
         }
-
-        //[HarmonyPatch(typeof(ScorePlayer))]
-        //[HarmonyPatch(nameof(ScorePlayer.StartNewHighScore))]
-        //[HarmonyPatch(MethodType.Normal)]
-        //[HarmonyPrefix]
-        //static bool ScorePlayer_StartNewHighScore_Prefix(ScorePlayer __instance)
-        //{
-        //    Logger.Log("IsStartHighScore: " + IsStartHighScore);
-        //    return IsStartHighScore;
-        //}
 
         [HarmonyPatch(typeof(EnsoGameManager))]
         [HarmonyPatch(nameof(EnsoGameManager.ProcLoading))]
