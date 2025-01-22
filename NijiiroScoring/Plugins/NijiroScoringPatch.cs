@@ -10,7 +10,7 @@ using static DataConst;
 
 namespace NijiiroScoring.Plugins
 {
-    internal class NijiroScoringPatch
+    public class NijiroScoringPatch
     {
         public static bool IsEnabled = false;
 
@@ -94,6 +94,8 @@ namespace NijiiroScoring.Plugins
             }
         }
 
+        static bool IsStartHighScore = false;
+        static int realHighScore = 0;
         [HarmonyPatch(typeof(ScorePlayer))]
         [HarmonyPatch(nameof(ScorePlayer.SetScore))]
         [HarmonyPatch(MethodType.Normal)]
@@ -104,21 +106,42 @@ namespace NijiiroScoring.Plugins
             {
                 if (PreviousScore != CurrentScore)
                 {
-
-
                     enableGreenLight = false;
                     enableHighScoreBG = false;
                     enableHighScoreEffect = false;
 
                     score = CurrentScore;
                     PreviousScore = score;
-                    if (__instance.m_iHighScore != 0)
+                    if (__instance.m_iHighScore != 9999999 && !IsStartHighScore)
                     {
-                        if (score >= __instance.m_iHighScore)
+                        realHighScore = __instance.m_iHighScore;
+                        __instance.m_iHighScore = 9999999;
+                    }
+                    List<string> output = new List<string>()
+                    {
+                        "__instance.m_iHighScore: " + __instance.m_iHighScore,
+                        "realHighScore: " + realHighScore,
+                        "__instance.m_iPrevScore: " + __instance.m_iPrevScore,
+                        "__instance.m_iReachScore: " + __instance.m_iReachScore,
+                    };
+                    if (realHighScore != 0)
+                    {
+                        if (score >= realHighScore)
                         {
-                            if (__instance.m_iReachScore < __instance.m_iHighScore)
+                            if (!IsStartHighScore)
                             {
+                                __instance.m_bOncePerGame = false;
+                                __instance.m_iHighScore = realHighScore;
+                                IsStartHighScore = true;
+                            }
+                            if (__instance.m_iReachScore < realHighScore)
+                            {
+                                output.Add("enableHighScoreEffect");
+                                output.Add("enableHighScoreBG");
+                                output.Add("enableGreenLight");
                                 enableHighScoreEffect = true;
+                                enableHighScoreBG = true;
+                                enableGreenLight = true;
                             }
                             else
                             {
@@ -127,15 +150,15 @@ namespace NijiiroScoring.Plugins
                         }
                         else if (score >= __instance.m_iReachScore)
                         {
+                            output.Add("enableGreenLight");
                             enableGreenLight = true;
                         }
+                        else
+                        {
+                            __instance.m_bOncePerGame = true;
+                        }
                     }
-                    List<string> output = new List<string>()
-                    {
-                        "__instance.m_iHighScore: " + __instance.m_iHighScore,
-                        "__instance.m_iPrevScore: " + __instance.m_iPrevScore,
-                        "__instance.m_iReachScore: " + __instance.m_iReachScore,
-                    };
+                    
                     Logger.Log(output);
                     return true;
                 }
@@ -145,6 +168,15 @@ namespace NijiiroScoring.Plugins
             return true;
         }
 
+        //[HarmonyPatch(typeof(ScorePlayer))]
+        //[HarmonyPatch(nameof(ScorePlayer.StartNewHighScore))]
+        //[HarmonyPatch(MethodType.Normal)]
+        //[HarmonyPrefix]
+        //static bool ScorePlayer_StartNewHighScore_Prefix(ScorePlayer __instance)
+        //{
+        //    Logger.Log("IsStartHighScore: " + IsStartHighScore);
+        //    return IsStartHighScore;
+        //}
 
         [HarmonyPatch(typeof(EnsoGameManager))]
         [HarmonyPatch(nameof(EnsoGameManager.ProcLoading))]
@@ -166,6 +198,7 @@ namespace NijiiroScoring.Plugins
                     CurrentScore = 0;
                     PreviousScore = -1;
                     IsResult = false;
+                    IsStartHighScore = false;
                     if (points != null)
                     {
                         Points = points.Points;
