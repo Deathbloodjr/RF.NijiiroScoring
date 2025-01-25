@@ -25,6 +25,31 @@ namespace NijiiroScoring.Plugins
         static void UserData_OnLoaded_Postfix()
         {
             //Logger.Log("UserData_OnLoaded_Postfix");
+            MusicDataInterface musicInfos = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData;
+            for (int i = 0; i < musicInfos.MusicInfoAccesserList.Count; i++)
+            {
+                var musicInfo = musicInfos.MusicInfoAccesserList[i];
+                if (musicInfo is null)
+                {
+                    continue;
+                }
+
+                bool found = false;
+                foreach (var item in ParsedMusicInfos)
+                {
+                    if (musicInfo == item.Value.musicInfo)
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                {
+                    ParsedMusicInfos.Add(musicInfo.Id, (musicInfo, false));
+                }
+            }
+            
+
             IsUserDataLoaded = true;
             foreach (var item in ParsedMusicInfos.Values)
             {
@@ -300,6 +325,7 @@ namespace NijiiroScoring.Plugins
             if (musicInfo != null && !musicInfo.Debug && musicInfo.Session == "")
             {
                 var data = datas[musicInfo.UniqueId];
+                //Logger.Log("LoadSongPointsByMusicInfo start for song: " + musicInfo.Id);
 
                 yield return SongDataManager.VerifySongDataPoints(musicInfo);
                 for (EnsoData.EnsoLevelType j = 0; j < EnsoData.EnsoLevelType.Num; j++)
@@ -362,6 +388,7 @@ namespace NijiiroScoring.Plugins
                     }
 
                     data.normalRecordInfo[0][(int)j] = hiScore;
+                    //Logger.Log("data.normalRecordInfo set for song: " + musicInfo.Id);
                 }
             }
             SongDataManager.PauseExporting(false);
