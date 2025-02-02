@@ -25,6 +25,8 @@ namespace NijiiroScoring.Plugins
         static void UserData_OnLoaded_Postfix()
         {
             //Logger.Log("UserData_OnLoaded_Postfix");
+            // This part's basically no longer needed, as SetMusicInfo can grab every song
+            // And this part was just used to get anything missed from AddMusicInfo
             MusicDataInterface musicInfos = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData;
             for (int i = 0; i < musicInfos.MusicInfoAccesserList.Count; i++)
             {
@@ -37,7 +39,7 @@ namespace NijiiroScoring.Plugins
                 bool found = false;
                 foreach (var item in ParsedMusicInfos)
                 {
-                    if (musicInfo == item.Value.musicInfo)
+                    if (ParsedMusicInfos.ContainsKey(item.Value.musicInfo.Id))
                     {
                         found = true;
                         break;
@@ -45,6 +47,7 @@ namespace NijiiroScoring.Plugins
                 }
                 if (!found)
                 {
+                    //Logger.Log("Adding MusicInfo in OnLoaded: " + musicInfo.Id);
                     ParsedMusicInfos.Add(musicInfo.Id, (musicInfo, false));
                 }
             }
@@ -61,27 +64,49 @@ namespace NijiiroScoring.Plugins
             }
         }
 
-
-        [HarmonyPatch(typeof(MusicDataInterface))]
-        [HarmonyPatch(nameof(MusicDataInterface.AddMusicInfo))]
+        [HarmonyPatch(typeof(MusicInfoAccesser))]
+        [HarmonyPatch(nameof(MusicInfoAccesser.SetMusicInfo))]
         [HarmonyPatch(MethodType.Normal)]
         [HarmonyPostfix]
-        public static void MusicDataInterface_AddMusicInfo_Postfix(MusicDataInterface __instance, MusicDataInterface.MusicInfo musicinfo)
+        public static void MusicInfoAccesser_SetMusicInfo_Postfix(MusicInfoAccesser __instance, MusicDataInterface.MusicInfo musicinfo)
         {
             //Logger.Log("MusicDataInterface_AddMusicInfo_Postfix: __instance.Id: " + musicinfo.Id);
             if (!ParsedMusicInfos.ContainsKey(musicinfo.Id))
             {
+                //Logger.Log("Adding MusicInfo in MusicDataInterface: " + musicinfo.Id);
                 if (IsUserDataLoaded)
                 {
-                    ParsedMusicInfos.Add(musicinfo.Id, (__instance.GetInfoById(musicinfo.Id), true));
-                    Plugin.Instance.StartCoroutine(LoadSongPointsByMusicInfo(__instance.GetInfoById(musicinfo.Id)));
+                    ParsedMusicInfos.Add(musicinfo.Id, (__instance, true));
+                    Plugin.Instance.StartCoroutine(LoadSongPointsByMusicInfo(__instance));
                 }
                 else
                 {
-                    ParsedMusicInfos.Add(musicinfo.Id, (__instance.GetInfoById(musicinfo.Id), false));
+                    ParsedMusicInfos.Add(musicinfo.Id, (__instance, false));
                 }
             }
         }
+
+        //[HarmonyPatch(typeof(MusicDataInterface))]
+        //[HarmonyPatch(nameof(MusicDataInterface.AddMusicInfo))]
+        //[HarmonyPatch(MethodType.Normal)]
+        //[HarmonyPostfix]
+        //public static void MusicDataInterface_AddMusicInfo_Postfix(MusicDataInterface __instance, MusicDataInterface.MusicInfo musicinfo)
+        //{
+        //    //Logger.Log("MusicDataInterface_AddMusicInfo_Postfix: __instance.Id: " + musicinfo.Id);
+        //    if (!ParsedMusicInfos.ContainsKey(musicinfo.Id))
+        //    {
+        //        Logger.Log("Adding MusicInfo in MusicDataInterface: " + musicinfo.Id);
+        //        if (IsUserDataLoaded)
+        //        {
+        //            ParsedMusicInfos.Add(musicinfo.Id, (__instance.GetInfoById(musicinfo.Id), true));
+        //            Plugin.Instance.StartCoroutine(LoadSongPointsByMusicInfo(__instance.GetInfoById(musicinfo.Id)));
+        //        }
+        //        else
+        //        {
+        //            ParsedMusicInfos.Add(musicinfo.Id, (__instance.GetInfoById(musicinfo.Id), false));
+        //        }
+        //    }
+        //}
 
         static IEnumerator LoadSongPoints()
         {
