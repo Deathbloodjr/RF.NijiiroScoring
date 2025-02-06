@@ -374,12 +374,18 @@ namespace NijiiroScoring.Plugins
                         Logger.Log("Couldn't get points for song: " + musicInfo.Id);
                         break;
                     }
+                    if (!SongDataManager.IsValidPoints(points.Points, points.ScoreRank))
+                    {
+                        break;
+                    }
 
                     // This part's fucked
                     // Basically, the struct wasn't lining up properly when assigning values to different difficulties
                     // Assigning values to OKs on easy were just fine, but assigning a value to OKs on normal would assign it to Goods
                     // Assigning values to OKs on hard would assign it to Score, etc
                     int value = (numGoods * points.Points) + (numOks * SongDataManager.GetOkPoints(points.Points)) + (numRenda * 100);
+
+                    //Logger.Log("Song " + musicInfo.Id + " calculated score of " + value + " for difficulty " + j.ToString());
 
                     // Split the 4 byte value into two 2 byte values
                     short topHalf = (short)(value << 16 >> 16);

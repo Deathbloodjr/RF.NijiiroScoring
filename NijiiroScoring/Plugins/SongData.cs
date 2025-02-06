@@ -388,7 +388,7 @@ namespace NijiiroScoring.Plugins
             IsPauseExporting = pause;
         }
 
-        static bool IsValidPoints(int points, int scoreRank)
+        public static bool IsValidPoints(int points, int scoreRank)
         {
             // I'm doing this stupidly at first, I'll make it better later when I can better define invalid points
             if (points == 0 || scoreRank == 0)
