@@ -11,7 +11,7 @@ namespace NijiiroScoring.Plugins
 {
     public class SongDataManager
     {
-        static string FilePath = Path.Combine("BepInEx", "data", "NijiiroScoring", "SongData.json");
+        static string FilePath = Plugin.Instance.ConfigNijiroScoreDataPath.Value;
         static bool IsInitialized = false;
         static bool IsInitializedFromTakoTako = false;
 

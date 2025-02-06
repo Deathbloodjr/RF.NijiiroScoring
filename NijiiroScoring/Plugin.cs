@@ -24,6 +24,7 @@ namespace NijiiroScoring
 
         public ConfigEntry<bool> ConfigEnabled;
         //public ConfigEntry<bool> ConfigAlwaysCalculate;
+        public ConfigEntry<string> ConfigNijiroScoreDataPath;
         public ConfigEntry<string> ConfigTakoTakoPath;
 
 
@@ -52,6 +53,11 @@ namespace NijiiroScoring
             //    "AlwaysCalculate",
             //    false,
             //    "Set this to true to always calculate song's nijiro values if they are invalid. This can fix rare issues where songs aren't being calculated. ");
+
+            ConfigNijiroScoreDataPath = Config.Bind("General",
+                "NijiroScoreDataPath",
+                Path.Combine("BepInEx", "data", "NijiiroScoring", "SongData.json"),
+                "The file path to the json file containing any nijiiro scoring data. Data is auto generated, but can be adjusted manually.");
 
             ConfigTakoTakoPath = Config.Bind("General",
                 "TakoTakoPath",
