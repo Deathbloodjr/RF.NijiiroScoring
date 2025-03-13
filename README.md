@@ -3,6 +3,8 @@
  
  This mod will overwrite all of your highscores, replacing the old Gen3 score with Nijiro's score. It will keep your actual performance though (goods, oks, etc)
  
+  <a href="taikomodmanager:insertGithubLinkhereAndReplaceWithUrlShortener"> <img src="Resources/InstallButton.png" alt="One-click Install using the Taiko Mod Manager" width="256"/> </a>
+  
  
 # Requirements
  Visual Studio 2022 or newer\
