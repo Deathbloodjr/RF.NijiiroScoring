@@ -94,6 +94,7 @@ namespace NijiiroScoring
                 result &= Instance.PatchFile(typeof(GetFumenDataHook));
                 result &= Instance.PatchFile(typeof(NijiroScoringPatch));
                 result &= Instance.PatchFile(typeof(NijiroScoreLoading));
+                result &= Instance.PatchFile(typeof(GetFrameResultsHook));
                 if (result)
                 {
                     Logger.Log($"Plugin {MyPluginInfo.PLUGIN_NAME} is loaded!");
@@ -112,7 +113,7 @@ namespace NijiiroScoring
             }
         }
 
-        private bool PatchFile(Type type)
+        internal bool PatchFile(Type type)
         {
             if (_harmony == null)
             {
@@ -131,6 +132,23 @@ namespace NijiiroScoring
                 Logger.Log("Failed to patch file: " + type.FullName);
                 Logger.Log(e.Message);
                 return false;
+            }
+        }
+
+        internal static void UnpatchMethod(string methodName)
+        {
+            if (Instance._harmony is null)
+            {
+                return;
+            }
+
+            var methods = Instance._harmony.GetPatchedMethods().ToList();
+            for (int i = 0; i < methods.Count; i++)
+            {
+                if (methods[i].Name == methodName)
+                {
+                    Instance._harmony.Unpatch(methods[i], HarmonyPatchType.All, Instance._harmony.Id);
+                }
             }
         }
 

@@ -1,9 +1,16 @@
 # RF.NijiiroScoring
- A Rhythm Festival mod to change Gen3 scoring to Nijiiro scoring.
+ A Rhythm Festival mod to change from the current Gen3 scoring to Nijiiro (Gen4) scoring.
  
- This mod will overwrite all of your highscores, replacing the old Gen3 score with Nijiro's score. It will keep your actual performance though (goods, oks, etc)
+ This mod will overwrite all of your highscores, replacing the old Gen3 score with Nijiro's score. It will keep your actual performance though (goods, oks, etc).\
+ Just to be safe, make sure you backup your save from the tkdat folder in the Taiko directory.
+
+ This mod is automatically disabled in online matches.
+
+ It may take a bit of time to calculate all the proper point values for every song on first launch. Afterward, it loads all the values from a local json file.\
+ If you find any values that are incorrect, you can manually adjust this json file to fix them.\
+ Most oni/ura chart values should only be off by about 10 points at most, while easy through hard may be off by a bit more.
  
-  <a href="taikomodmanager:insertGithubLinkhereAndReplaceWithUrlShortener"> <img src="Resources/InstallButton.png" alt="One-click Install using the Taiko Mod Manager" width="256"/> </a>
+  <a href="https://shorturl.at/C1Ixs"> <img src="Resources/InstallButton.png" alt="One-click Install using the Taiko Mod Manager" width="256"/> </a>
   
  
 # Requirements

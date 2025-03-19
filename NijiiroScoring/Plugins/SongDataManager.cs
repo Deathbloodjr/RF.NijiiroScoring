@@ -153,18 +153,21 @@ namespace NijiiroScoring.Plugins
         public static IEnumerator VerifySongDataPoints(int uniqueId)
         {
             MusicDataInterface.MusicInfoAccesser musicInfo = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData.GetInfoByUniqueId(uniqueId);
-            List<Coroutine> coroutines = new List<Coroutine>();
-            for (EnsoData.EnsoLevelType i = 0; i < EnsoData.EnsoLevelType.Num; i++)
+            if (musicInfo is not null)
             {
-                if (SongDataRequiresCalculating(musicInfo.Id, i))
+                List<Coroutine> coroutines = new List<Coroutine>();
+                for (EnsoData.EnsoLevelType i = 0; i < EnsoData.EnsoLevelType.Num; i++)
                 {
-                    coroutines.Add(Plugin.Instance.StartCoroutine(VerifySongDataPoints2(musicInfo.Id, i)));
+                    if (SongDataRequiresCalculating(musicInfo.Id, i))
+                    {
+                        coroutines.Add(Plugin.Instance.StartCoroutine(VerifySongDataPoints2(musicInfo.Id, i)));
+                    }
+                    //VerifySongDataPoints(musicInfo.Id, i, calculate);
                 }
-                //VerifySongDataPoints(musicInfo.Id, i, calculate);
-            }
-            for (int i = 0; i < coroutines.Count; i++)
-            {
-                yield return coroutines[i];
+                for (int i = 0; i < coroutines.Count; i++)
+                {
+                    yield return coroutines[i];
+                }
             }
         }
         public static IEnumerator VerifySongDataPoints(string songId)

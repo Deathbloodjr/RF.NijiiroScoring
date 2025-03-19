@@ -16,11 +16,11 @@ namespace NijiiroScoring.Plugins
 
         static Queue<int> ScoreIncreaseQueue = new Queue<int>();
 
-        static int CurrentScore;
+        internal static int CurrentScore;
         static int PreviousScore;
 
-        static int Points = 1000;
-        static int PointsOks = 500;
+        internal static int Points = 1000;
+        internal static int PointsOks = 500;
 
         static int UpdateFrameResults = -1;
 
@@ -182,12 +182,12 @@ namespace NijiiroScoring.Plugins
                 }
                 else
                 {
+                    ScoreIncreaseQueue.Clear();
                     IsEnabled = true;
                     var musicInfo = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData.GetInfoByUniqueId(__instance.settings.musicUniqueId);
                     var points = SongDataManager.GetSongDataPoints(musicInfo.Id, __instance.settings.ensoPlayerSettings[0].courseType);
                     CurrentScore = 0;
                     PreviousScore = -1;
-                    IsResult = false;
                     IsStartHighScore = false;
                     if (points != null)
                     {
@@ -209,28 +209,18 @@ namespace NijiiroScoring.Plugins
             }
         }
 
-        static bool IsResult = false;
         [HarmonyPatch(typeof(EnsoGameManager))]
         [HarmonyPatch(nameof(EnsoGameManager.SetResults))]
         [HarmonyPatch(MethodType.Normal)]
         [HarmonyPrefix]
         static void EnsoGameManager_SetResults_Prefix(EnsoGameManager __instance)
         {
-            IsResult = true;
-        }
-
-        [HarmonyPatch(typeof(EnsoPlayingParameter))]
-        [HarmonyPatch(nameof(EnsoPlayingParameter.GetFrameResults))]
-        [HarmonyPatch(MethodType.Normal)]
-        [HarmonyPostfix]
-        static void EnsoPlayingParameter_GetFrameResults_Postfix(EnsoPlayingParameter __instance, ref TaikoCoreFrameResults __result)
-        {
-            if (IsResult)
+            if (IsEnabled)
             {
-                var eachPlayer = __result.eachPlayer[0];
-                eachPlayer.score = (uint)CurrentScore;
-                __result.eachPlayer[0] = eachPlayer;
+                Plugin.Instance.PatchFile(typeof(GetFrameResultsHook));
             }
         }
+
+
     }
 }
