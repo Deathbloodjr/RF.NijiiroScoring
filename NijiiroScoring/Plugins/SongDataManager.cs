@@ -328,6 +328,7 @@ namespace NijiiroScoring.Plugins
 
                 foreach (var song in AllSongData.Values)
                 {
+                    // TODO: Add some error checks here to prevent a shit ton of error messages appearing when new songs are added
                     JsonObject obj = new JsonObject()
                     {
                         ["SongId"] = song.SongId,

@@ -54,6 +54,7 @@ namespace NijiiroScoring.Plugins
             
 
             IsUserDataLoaded = true;
+            SongDataManager.PauseExporting(true);
             foreach (var item in ParsedMusicInfos.Values)
             {
                 if (!item.isParsed)
@@ -62,6 +63,8 @@ namespace NijiiroScoring.Plugins
                     Plugin.Instance.StartCoroutine(LoadSongPointsByMusicInfo(item.musicInfo));
                 }
             }
+            SongDataManager.PauseExporting(false);
+            SongDataManager.ExportSongData();
         }
 
         [HarmonyPatch(typeof(MusicInfoAccesser))]
@@ -78,6 +81,7 @@ namespace NijiiroScoring.Plugins
                 {
                     ParsedMusicInfos.Add(musicinfo.Id, (__instance, true));
                     Plugin.Instance.StartCoroutine(LoadSongPointsByMusicInfo(__instance));
+                    SongDataManager.ExportSongData();
                 }
                 else
                 {
@@ -115,7 +119,6 @@ namespace NijiiroScoring.Plugins
 
             var datas = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.SaveData.Data.MusicsData.Datas;
 
-            SongDataManager.PauseExporting(true);
 
 
             if (musicInfo != null && !musicInfo.Debug && musicInfo.Session == "")
@@ -193,8 +196,6 @@ namespace NijiiroScoring.Plugins
                     Logger.Log("data.normalRecordInfo set for song: " + musicInfo.Id, LogType.Debug);
                 }
             }
-            SongDataManager.PauseExporting(false);
-            SongDataManager.ExportSongData();
         }
 
 
