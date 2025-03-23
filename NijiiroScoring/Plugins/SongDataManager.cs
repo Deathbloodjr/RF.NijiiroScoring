@@ -311,6 +311,10 @@ namespace NijiiroScoring.Plugins
 
         public static SongDataPoints GetSongDataPoints(string songId, EnsoData.EnsoLevelType level)
         {
+            if (SongDataRequiresCalculating(songId, level))
+            {
+                Plugin.Instance.StartCoroutine(CalculateSongPointValues(songId, level));
+            }
             var result = AllSongData[songId].Points[level];
             return result;
         }
