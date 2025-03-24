@@ -215,7 +215,7 @@ namespace NijiiroScoring.Plugins
             yield return SongDataManager.VerifySongDataPoints(songUid);
             MusicDataInterface.MusicInfoAccesser musicInfo = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData.GetInfoByUniqueId(songUid);
             yield return LoadSongPointsByMusicInfo(musicInfo);
-            Logger.Log("Nijiro points calculated for newly downloaded song");
+            Logger.Log("Nijiro points calculated for newly downloaded song", LogType.Debug);
         }
     }
 }

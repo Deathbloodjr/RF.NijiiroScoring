@@ -332,34 +332,68 @@ namespace NijiiroScoring.Plugins
 
                 foreach (var song in AllSongData.Values)
                 {
-                    // TODO: Add some error checks here to prevent a shit ton of error messages appearing when new songs are added
+                    // This is ugly and i didn't want to do things this way
+                    // But I'd rather not have errors
+
+                    (int points, int scoreRank) easy = (0, 0);
+                    (int points, int scoreRank) normal = (0, 0);
+                    (int points, int scoreRank) hard = (0, 0);
+                    (int points, int scoreRank) oni = (0, 0);
+                    (int points, int scoreRank) ura = (0, 0);
+
+                    if (song.Points.ContainsKey(EnsoData.EnsoLevelType.Easy))
+                    {
+                        var points = song.Points[EnsoData.EnsoLevelType.Easy];
+                        easy = (points.Points, points.ScoreRank);
+                    }
+                    if (song.Points.ContainsKey(EnsoData.EnsoLevelType.Normal))
+                    {
+                        var points = song.Points[EnsoData.EnsoLevelType.Normal];
+                        normal = (points.Points, points.ScoreRank);
+                    }
+                    if (song.Points.ContainsKey(EnsoData.EnsoLevelType.Hard))
+                    {
+                        var points = song.Points[EnsoData.EnsoLevelType.Hard];
+                        hard = (points.Points, points.ScoreRank);
+                    }
+                    if (song.Points.ContainsKey(EnsoData.EnsoLevelType.Mania))
+                    {
+                        var points = song.Points[EnsoData.EnsoLevelType.Mania];
+                        oni = (points.Points, points.ScoreRank);
+                    }
+                    if (song.Points.ContainsKey(EnsoData.EnsoLevelType.Ura))
+                    {
+                        var points = song.Points[EnsoData.EnsoLevelType.Ura];
+                        ura = (points.Points, points.ScoreRank);
+                    }
+
                     JsonObject obj = new JsonObject()
                     {
                         ["SongId"] = song.SongId,
                         ["Easy"] = new JsonObject()
                         {
-                            ["Points"] = song.Points[EnsoData.EnsoLevelType.Easy].Points,
-                            ["ScoreRank"] = song.Points[EnsoData.EnsoLevelType.Easy].ScoreRank,
+                            ["Points"] = easy.points,
+                            ["ScoreRank"] = easy.scoreRank,
                         },
                         ["Normal"] = new JsonObject()
                         {
-                            ["Points"] = song.Points[EnsoData.EnsoLevelType.Normal].Points,
-                            ["ScoreRank"] = song.Points[EnsoData.EnsoLevelType.Normal].ScoreRank,
+                            ["Points"] = normal.points,
+                            ["ScoreRank"] = normal.scoreRank,
                         },
                         ["Hard"] = new JsonObject()
                         {
-                            ["Points"] = song.Points[EnsoData.EnsoLevelType.Hard].Points,
-                            ["ScoreRank"] = song.Points[EnsoData.EnsoLevelType.Hard].ScoreRank,
+                            ["Points"] = hard.points,
+                            ["ScoreRank"] = hard.scoreRank,
                         },
                         ["Oni"] = new JsonObject()
                         {
-                            ["Points"] = song.Points[EnsoData.EnsoLevelType.Mania].Points,
-                            ["ScoreRank"] = song.Points[EnsoData.EnsoLevelType.Mania].ScoreRank,
+                            ["Points"] = oni.points,
+                            ["ScoreRank"] = oni.scoreRank,
                         },
                         ["Ura"] = new JsonObject()
                         {
-                            ["Points"] = song.Points[EnsoData.EnsoLevelType.Ura].Points,
-                            ["ScoreRank"] = song.Points[EnsoData.EnsoLevelType.Ura].ScoreRank,
+                            ["Points"] = ura.points,
+                            ["ScoreRank"] = ura.scoreRank,
                         }
                     };
                     array.Add(obj);
