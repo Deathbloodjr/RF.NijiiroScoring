@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ModName>NijiiroScoring</ModName>
-    <ModVersion>1.0.0</ModVersion>
+    <ModVersion>1.0.1</ModVersion>
     <Description>A Rhythm Festival mod to change from the current Gen3 scoring to Nijiiro (Gen4) scoring.</Description>
   </PropertyGroup>
   

@@ -1,5 +1,6 @@
 ﻿using HarmonyLib;
 using Scripts.GameSystem;
+using Scripts.OutGame.MainMenu;
 using Scripts.UserData;
 using System;
 using System.Collections;
@@ -17,6 +18,8 @@ namespace NijiiroScoring.Plugins
         static List<string> ParsedSongIds = new List<string>();
         static Dictionary<string, (MusicInfoAccesser musicInfo, bool isParsed)> ParsedMusicInfos = new Dictionary<string, (MusicInfoAccesser musicInfo, bool isParsed)>();
 
+        static bool isLoaded = false;
+
         static bool IsUserDataLoaded = false;
         [HarmonyPatch(typeof(UserData))]
         [HarmonyPatch(nameof(UserData.OnLoaded))]
@@ -24,7 +27,28 @@ namespace NijiiroScoring.Plugins
         [HarmonyPostfix]
         static void UserData_OnLoaded_Postfix()
         {
-            //Logger.Log("UserData_OnLoaded_Postfix");
+            Logger.Log("UserData_OnLoaded_Postfix");
+            isLoaded = false;
+            //OnLoaded();
+        }
+
+        [HarmonyPatch(typeof(MainMenuSceneUiController))]
+        [HarmonyPatch(nameof(MainMenuSceneUiController.StartUpdate))]
+        [HarmonyPatch(MethodType.Normal)]
+        [HarmonyPostfix]
+        public static void MainMenuSceneUiController_StartUpdate_Postfix()
+        {
+            if (!isLoaded)
+            {
+                Logger.Log("MainMenuSceneUiController_StartUpdate_Postfix");
+                OnLoaded();
+                isLoaded = true;
+            }
+        }
+
+        static async void OnLoaded()
+        {
+            Logger.Log("OnLoaded");
             // This part's basically no longer needed, as SetMusicInfo can grab every song
             // And this part was just used to get anything missed from AddMusicInfo
             MusicDataInterface musicInfos = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData;
@@ -39,7 +63,7 @@ namespace NijiiroScoring.Plugins
                 bool found = false;
                 foreach (var item in ParsedMusicInfos)
                 {
-                    if (ParsedMusicInfos.ContainsKey(item.Value.musicInfo.Id))
+                    if (ParsedMusicInfos.ContainsKey(musicInfo.Id))
                     {
                         found = true;
                         break;
@@ -51,7 +75,7 @@ namespace NijiiroScoring.Plugins
                     ParsedMusicInfos.Add(musicInfo.Id, (musicInfo, false));
                 }
             }
-            
+
 
             IsUserDataLoaded = true;
             SongDataManager.PauseExporting(true);
@@ -60,35 +84,35 @@ namespace NijiiroScoring.Plugins
                 if (!item.isParsed)
                 {
                     ParsedMusicInfos[item.musicInfo.Id] = (item.musicInfo, true);
-                    Plugin.Instance.StartCoroutine(LoadSongPointsByMusicInfo(item.musicInfo));
+                    await LoadSongPointsByMusicInfo(item.musicInfo);
                 }
             }
             SongDataManager.PauseExporting(false);
             SongDataManager.ExportSongData();
         }
 
-        [HarmonyPatch(typeof(MusicInfoAccesser))]
-        [HarmonyPatch(nameof(MusicInfoAccesser.SetMusicInfo))]
-        [HarmonyPatch(MethodType.Normal)]
-        [HarmonyPostfix]
-        public static void MusicInfoAccesser_SetMusicInfo_Postfix(MusicInfoAccesser __instance, MusicDataInterface.MusicInfo musicinfo)
-        {
-            //Logger.Log("MusicDataInterface_AddMusicInfo_Postfix: __instance.Id: " + musicinfo.Id);
-            if (!ParsedMusicInfos.ContainsKey(musicinfo.Id))
-            {
-                //Logger.Log("Adding MusicInfo in MusicDataInterface: " + musicinfo.Id);
-                if (IsUserDataLoaded)
-                {
-                    ParsedMusicInfos.Add(musicinfo.Id, (__instance, true));
-                    Plugin.Instance.StartCoroutine(LoadSongPointsByMusicInfo(__instance));
-                    SongDataManager.ExportSongData();
-                }
-                else
-                {
-                    ParsedMusicInfos.Add(musicinfo.Id, (__instance, false));
-                }
-            }
-        }
+        //[HarmonyPatch(typeof(MusicInfoAccesser))]
+        //[HarmonyPatch(nameof(MusicInfoAccesser.SetMusicInfo))]
+        //[HarmonyPatch(MethodType.Normal)]
+        //[HarmonyPostfix]
+        //public static void MusicInfoAccesser_SetMusicInfo_Postfix(MusicInfoAccesser __instance, MusicDataInterface.MusicInfo musicinfo)
+        //{
+        //    //Logger.Log("MusicDataInterface_AddMusicInfo_Postfix: __instance.Id: " + musicinfo.Id);
+        //    if (!ParsedMusicInfos.ContainsKey(musicinfo.Id))
+        //    {
+        //        //Logger.Log("Adding MusicInfo in MusicDataInterface: " + musicinfo.Id);
+        //        if (IsUserDataLoaded)
+        //        {
+        //            ParsedMusicInfos.Add(musicinfo.Id, (__instance, true));
+        //            LoadSongPointsByMusicInfo(__instance);
+        //            SongDataManager.ExportSongData();
+        //        }
+        //        else
+        //        {
+        //            ParsedMusicInfos.Add(musicinfo.Id, (__instance, false));
+        //        }
+        //    }
+        //}
 
         //[HarmonyPatch(typeof(MusicDataInterface))]
         //[HarmonyPatch(nameof(MusicDataInterface.AddMusicInfo))]
@@ -112,7 +136,7 @@ namespace NijiiroScoring.Plugins
         //    }
         //}
 
-        static IEnumerator LoadSongPointsByMusicInfo(MusicInfoAccesser musicInfo)
+        static async Task LoadSongPointsByMusicInfo(MusicInfoAccesser musicInfo)
         {
             //Logger.Log("Loading Nijiro Point Values");
             MusicsData musicData = SingletonMonoBehaviour<CommonObjects>.Instance.MusicData;
@@ -126,7 +150,7 @@ namespace NijiiroScoring.Plugins
                 var data = datas[musicInfo.UniqueId];
                 //Logger.Log("LoadSongPointsByMusicInfo start for song: " + musicInfo.Id);
 
-                yield return SongDataManager.VerifySongDataPoints(musicInfo);
+                await SongDataManager.VerifySongDataPoints(musicInfo);
                 for (EnsoData.EnsoLevelType j = 0; j < EnsoData.EnsoLevelType.Num; j++)
                 {
                     if (musicInfo.Stars[(int)j] == 0)
@@ -206,15 +230,15 @@ namespace NijiiroScoring.Plugins
         static void MusicsData_AddDownloadedSong_Postfix(MusicsData __instance, int songUid)
         {
             Logger.Log("New song downloaded", LogType.Debug);
-            Plugin.Instance.StartCoroutine(UpdateNewlyDownloadedSong(songUid));
-
+            UpdateNewlyDownloadedSong(songUid);
         }
 
-        static IEnumerator UpdateNewlyDownloadedSong(int songUid)
+        static async void UpdateNewlyDownloadedSong(int songUid)
         {
-            yield return SongDataManager.VerifySongDataPoints(songUid);
+            SongDataManager.VerifySongDataPoints(songUid);
             MusicDataInterface.MusicInfoAccesser musicInfo = TaikoSingletonMonoBehaviour<CommonObjects>.Instance.MyDataManager.MusicData.GetInfoByUniqueId(songUid);
-            yield return LoadSongPointsByMusicInfo(musicInfo);
+            await LoadSongPointsByMusicInfo(musicInfo);
+            SongDataManager.ExportSongData();
             Logger.Log("Nijiro points calculated for newly downloaded song", LogType.Debug);
         }
     }

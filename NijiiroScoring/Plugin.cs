@@ -67,14 +67,15 @@ namespace NijiiroScoring
 
             ConfigNijiroScoreDataPath = Config.Bind("General",
                 "NijiroScoreDataPath",
-                Path.Combine("BepInEx", "data", "NijiiroScoring", "SongData.json"),
+                Path.Combine(dataFolder, "SongData.json"),
                 "The file path to the json file containing any nijiiro scoring data. Data is auto generated, but can be adjusted manually.");
 
             ConfigTakoTakoPath = Config.Bind("General",
                 "TakoTakoPath",
-                Path.Combine("BepInEx", "data", "TakoTako", "customSongs"),
-                "The folder path to your TakoTako customSongs directory from TDMX. " +
-                "Leave blank if you don't want to import point values from TDMX.");
+                "null",
+                "The folder path to your TakoTako customSongs directory from TDMX. " + 
+                "When this data is parsed, it will set this value back to null to avoid reparsing it again. " +
+                "Ignore if you don't want to import point values from TDMX.");
         }
 
         private void SetupHarmony()
@@ -91,7 +92,7 @@ namespace NijiiroScoring
             {
                 bool result = true;
                 // If any PatchFile fails, result will become false
-                result &= Instance.PatchFile(typeof(GetFumenDataHook));
+                //result &= Instance.PatchFile(typeof(GetFumenDataHook));
                 result &= Instance.PatchFile(typeof(NijiroScoringPatch));
                 result &= Instance.PatchFile(typeof(NijiroScoreLoading));
                 result &= Instance.PatchFile(typeof(GetFrameResultsHook));
@@ -193,14 +194,43 @@ namespace NijiiroScoring
         }
 
         public static MonoBehaviour GetMonoBehaviour() => TaikoSingletonMonoBehaviour<CommonObjects>.Instance;
-        public Coroutine StartCoroutine(IEnumerator enumerator)
+        public void StartCoroutine(IEnumerator enumerator)
         {
-            return GetMonoBehaviour().StartCoroutine(enumerator);
+            GetMonoBehaviour().StartCoroutine(enumerator);
+        }
+        public void StartCoroutine(Il2CppSystem.Collections.IEnumerator enumerator)
+        {
+            GetMonoBehaviour().StartCoroutine(enumerator);
         }
 
-        public void StartMicroCoroutine(IEnumerator enumerator)
+        public Task WaitForCoroutine(IEnumerator coroutine)
         {
-            MainThreadDispatcher.StartUpdateMicroCoroutine(enumerator.WrapToIl2Cpp());
+            Logger.Log("WaitForCoroutine 1");
+            var tcs = new TaskCompletionSource<bool>();
+            StartCoroutine(RunCoroutineAndCompleteTask(coroutine, tcs));
+            Logger.Log("WaitForCoroutine After");
+            return tcs.Task;
+        }
+
+        public Task WaitForCoroutine(Il2CppSystem.Collections.IEnumerator coroutine)
+        {
+            Logger.Log("WaitForCoroutine 2");
+            var tcs = new TaskCompletionSource<bool>();
+            StartCoroutine(RunCoroutineAndCompleteTask(coroutine, tcs));
+            Logger.Log("WaitForCoroutine After");
+            return tcs.Task;
+        }
+
+        private IEnumerator RunCoroutineAndCompleteTask(IEnumerator coroutine, TaskCompletionSource<bool> tcs)
+        {
+            yield return GetMonoBehaviour().StartCoroutine(coroutine);
+            tcs.SetResult(true); // Complete the task when the coroutine is done
+        }
+
+        private IEnumerator RunCoroutineAndCompleteTask(Il2CppSystem.Collections.IEnumerator coroutine, TaskCompletionSource<bool> tcs)
+        {
+            yield return GetMonoBehaviour().StartCoroutine(coroutine);
+            tcs.SetResult(true); // Complete the task when the coroutine is done
         }
     }
 }
